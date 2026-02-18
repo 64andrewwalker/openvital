@@ -1974,6 +1974,45 @@ fn test_goal_status_human_with_specific_type() {
         .stdout(predicate::str::contains("water"));
 }
 
+// ── goal positional args ─────────────────────────────────────────────────────
+
+#[test]
+fn test_goal_set_positional_args() {
+    let dir = TempDir::new().unwrap();
+    init_dir(&dir);
+
+    // Goal set with positional: goal set weight 70 below daily
+    cmd_in(&dir)
+        .args(["goal", "set", "weight", "70", "below", "daily", "--human"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Goal set: weight below 70"));
+}
+
+#[test]
+fn test_goal_set_named_args_still_works() {
+    let dir = TempDir::new().unwrap();
+    init_dir(&dir);
+
+    // Goal set with named args (original syntax)
+    cmd_in(&dir)
+        .args([
+            "goal",
+            "set",
+            "water",
+            "--target",
+            "2000",
+            "--direction",
+            "above",
+            "--timeframe",
+            "daily",
+            "--human",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Goal set: water above 2000"));
+}
+
 // ── blood pressure ───────────────────────────────────────────────────────────
 
 #[test]
