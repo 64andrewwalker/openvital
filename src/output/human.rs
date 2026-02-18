@@ -31,7 +31,10 @@ pub fn format_status(s: &StatusData) -> String {
         out.push_str(&format!("Logged today: {}", s.today.logged.join(", ")));
     }
     if !s.today.pain_alerts.is_empty() {
-        out.push_str(&format!("\nPain alerts: {} active", s.today.pain_alerts.len()));
+        out.push_str(&format!(
+            "\nPain alerts: {} active",
+            s.today.pain_alerts.len()
+        ));
     }
     out
 }

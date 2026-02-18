@@ -22,8 +22,10 @@ pub fn run(skip: bool) -> Result<()> {
 
         let conditions = prompt_string("Known conditions (comma separated, or empty)")?;
         if !conditions.is_empty() {
-            config.profile.conditions =
-                conditions.split(',').map(|s| s.trim().to_string()).collect();
+            config.profile.conditions = conditions
+                .split(',')
+                .map(|s| s.trim().to_string())
+                .collect();
         }
 
         config.profile.primary_exercise = Some(prompt_string("Primary exercise type")?);

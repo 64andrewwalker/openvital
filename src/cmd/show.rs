@@ -32,7 +32,8 @@ pub fn run(
                     }
                 }
             } else {
-                let out = output::success("show", json!({ "type": metric_type, "entries": entries }));
+                let out =
+                    output::success("show", json!({ "type": metric_type, "entries": entries }));
                 println!("{}", serde_json::to_string(&out)?);
             }
         }
@@ -47,8 +48,10 @@ pub fn run(
                     }
                 }
             } else {
-                let out =
-                    output::success("show", json!({ "date": date.to_string(), "entries": entries }));
+                let out = output::success(
+                    "show",
+                    json!({ "date": date.to_string(), "entries": entries }),
+                );
                 println!("{}", serde_json::to_string(&out)?);
             }
         }

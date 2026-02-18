@@ -35,10 +35,7 @@ pub fn run_set(key: &str, value: &str) -> Result<()> {
     }
 
     config.save()?;
-    let out = output::success(
-        "config",
-        json!({ "key": key, "value": value }),
-    );
+    let out = output::success("config", json!({ "key": key, "value": value }));
     println!("{}", serde_json::to_string(&out)?);
     Ok(())
 }

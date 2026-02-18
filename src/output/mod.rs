@@ -1,6 +1,6 @@
 pub mod human;
 
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 /// Standard JSON envelope per spec section 5.3.
 pub fn success(command: &str, data: Value) -> Value {

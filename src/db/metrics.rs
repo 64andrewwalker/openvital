@@ -23,8 +23,7 @@ fn row_to_metric(r: MetricRow) -> Result<Metric> {
         Some(ref t) => serde_json::from_str(t).unwrap_or_default(),
         None => Vec::new(),
     };
-    let timestamp: DateTime<Utc> =
-        DateTime::parse_from_rfc3339(&r.timestamp)?.with_timezone(&Utc);
+    let timestamp: DateTime<Utc> = DateTime::parse_from_rfc3339(&r.timestamp)?.with_timezone(&Utc);
     let category = match r.category.as_str() {
         "body" => Category::Body,
         "exercise" => Category::Exercise,

@@ -2,6 +2,7 @@ use anyhow::Result;
 use chrono::NaiveDate;
 use serde_json::json;
 
+use crate::core::logging::LogEntry;
 use crate::db::Database;
 use crate::models::config::Config;
 use crate::output;
@@ -18,7 +19,18 @@ pub fn run(
 ) -> Result<()> {
     let config = Config::load()?;
     let db = Database::open(&Config::db_path())?;
-    let m = crate::core::logging::log_metric(&db, &config, metric_type, value, note, tags, source, date)?;
+    let m = crate::core::logging::log_metric(
+        &db,
+        &config,
+        LogEntry {
+            metric_type,
+            value,
+            note,
+            tags,
+            source,
+            date,
+        },
+    )?;
 
     if human_flag {
         println!("Logged: {}", human::format_metric(&m));

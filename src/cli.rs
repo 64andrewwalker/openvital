@@ -2,7 +2,11 @@ use chrono::NaiveDate;
 use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
-#[command(name = "openvital", version, about = "Agent-native health management CLI")]
+#[command(
+    name = "openvital",
+    version,
+    about = "Agent-native health management CLI"
+)]
 pub struct Cli {
     #[command(subcommand)]
     pub command: Commands,
