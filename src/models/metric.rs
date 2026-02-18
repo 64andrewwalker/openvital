@@ -54,12 +54,25 @@ pub fn default_unit(metric_type: &str) -> &str {
         "sleep_quality" => "1-5",
         "bed_time" | "wake_time" => "HH:MM",
         "water" => "ml",
+        "sleep" => "hours",
+        "steps" => "steps",
+        "mood" => "1-10",
+        "heart_rate" => "bpm",
+        "bp_systolic" | "bp_diastolic" => "mmHg",
         "pain" => "0-10",
         "soreness" => "0-10",
         "standing_breaks" => "count",
         "screen_time" => "hours",
         _ => "",
     }
+}
+
+/// Whether a metric type is cumulative (sum values) vs snapshot (use latest).
+pub fn is_cumulative(metric_type: &str) -> bool {
+    matches!(
+        metric_type,
+        "water" | "steps" | "calories_in" | "calories_burned" | "standing_breaks"
+    )
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -424,6 +424,26 @@ fn test_category_serde_json() {
     assert_eq!(c, Category::Exercise);
 }
 
+// ─── is_cumulative tests ──────────────────────────────────────────────────────
+
+#[test]
+fn test_is_cumulative_water_steps() {
+    assert!(openvital::models::metric::is_cumulative("water"));
+    assert!(openvital::models::metric::is_cumulative("steps"));
+    assert!(openvital::models::metric::is_cumulative("calories_in"));
+    assert!(openvital::models::metric::is_cumulative("calories_burned"));
+    assert!(openvital::models::metric::is_cumulative("standing_breaks"));
+}
+
+#[test]
+fn test_is_cumulative_false_for_snapshot_metrics() {
+    assert!(!openvital::models::metric::is_cumulative("weight"));
+    assert!(!openvital::models::metric::is_cumulative("sleep"));
+    assert!(!openvital::models::metric::is_cumulative("mood"));
+    assert!(!openvital::models::metric::is_cumulative("heart_rate"));
+    assert!(!openvital::models::metric::is_cumulative("body_fat"));
+}
+
 // ─── default_unit tests ───────────────────────────────────────────────────────
 
 #[test]
@@ -447,8 +467,18 @@ fn test_default_unit_known_types() {
 }
 
 #[test]
+fn test_default_unit_sleep_steps_mood_hr_bp() {
+    use openvital::models::metric::default_unit;
+    assert_eq!(default_unit("sleep"), "hours");
+    assert_eq!(default_unit("steps"), "steps");
+    assert_eq!(default_unit("mood"), "1-10");
+    assert_eq!(default_unit("heart_rate"), "bpm");
+    assert_eq!(default_unit("bp_systolic"), "mmHg");
+    assert_eq!(default_unit("bp_diastolic"), "mmHg");
+}
+
+#[test]
 fn test_default_unit_unknown_returns_empty() {
-    assert_eq!(default_unit("mood"), "");
     assert_eq!(default_unit(""), "");
     assert_eq!(default_unit("unknown"), "");
 }
@@ -484,8 +514,15 @@ fn test_metric_new_timestamp_is_recent() {
 
 #[test]
 fn test_metric_new_custom_type_has_empty_unit() {
-    let m = Metric::new("mood".to_string(), 7.0);
+    let m = Metric::new("unknown_thing".to_string(), 7.0);
     assert_eq!(m.unit, "");
+    assert_eq!(m.category, Category::Custom);
+}
+
+#[test]
+fn test_metric_new_mood_type_has_unit() {
+    let m = Metric::new("mood".to_string(), 7.0);
+    assert_eq!(m.unit, "1-10");
     assert_eq!(m.category, Category::Custom);
 }
 
