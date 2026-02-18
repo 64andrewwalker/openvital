@@ -28,7 +28,7 @@ pub fn run(
                     println!("No entries found for '{}'", metric_type);
                 } else {
                     for m in &entries {
-                        println!("{}", human::format_metric(m));
+                        println!("{}", human::format_metric_with_units(m, &config.units));
                     }
                 }
             } else {
@@ -44,7 +44,7 @@ pub fn run(
                 } else {
                     println!("--- {} ---", date);
                     for m in &entries {
-                        println!("{}", human::format_metric(m));
+                        println!("{}", human::format_metric_with_units(m, &config.units));
                     }
                 }
             } else {

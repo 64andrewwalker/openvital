@@ -19,12 +19,16 @@ pub fn run_set(
 
     let dir: Direction = direction.parse()?;
     let tf: Timeframe = timeframe.parse()?;
-    let goal = openvital::core::goal::set_goal(&db, resolved, target_value, dir, tf)?;
+    // Convert target from user units (e.g., imperial) to metric for storage
+    let stored_target = openvital::core::units::from_input(target_value, &resolved, &config.units);
+    let goal = openvital::core::goal::set_goal(&db, resolved, stored_target, dir, tf)?;
 
     if human {
+        let (display_target, display_unit) =
+            openvital::core::units::to_display(goal.target_value, &goal.metric_type, &config.units);
         println!(
-            "Goal set: {} {} {} ({})",
-            goal.metric_type, goal.direction, goal.target_value, goal.timeframe
+            "Goal set: {} {} {:.1} {} ({})",
+            goal.metric_type, goal.direction, display_target, display_unit, goal.timeframe
         );
     } else {
         let out = output::success("goal", json!({ "goal": goal }));
@@ -47,9 +51,20 @@ pub fn run_status(metric_type: Option<&str>, human: bool) -> Result<()> {
             for s in &statuses {
                 let met = if s.is_met { "MET" } else { "..." };
                 let progress = s.progress.as_deref().unwrap_or("no data");
+                let (display_target, display_unit) = openvital::core::units::to_display(
+                    s.target_value,
+                    &s.metric_type,
+                    &config.units,
+                );
                 println!(
-                    "[{}] {} {} {} ({}) — {}",
-                    met, s.metric_type, s.direction, s.target_value, s.timeframe, progress
+                    "[{}] {} {} {:.1} {} ({}) — {}",
+                    met,
+                    s.metric_type,
+                    s.direction,
+                    display_target,
+                    display_unit,
+                    s.timeframe,
+                    progress
                 );
             }
         }

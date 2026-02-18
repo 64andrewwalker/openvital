@@ -18,9 +18,13 @@ pub fn run(metric_type: &str, period: Option<&str>, last: Option<u32>, human: bo
         } else {
             println!("Trend: {} ({})\n", resolved, result.period);
             for d in &result.data {
+                let (avg, _) = openvital::core::units::to_display(d.avg, &resolved, &config.units);
+                let (min, _) = openvital::core::units::to_display(d.min, &resolved, &config.units);
+                let (max, unit) =
+                    openvital::core::units::to_display(d.max, &resolved, &config.units);
                 println!(
-                    "  {} | avg: {:.1}  min: {:.1}  max: {:.1}  (n={})",
-                    d.label, d.avg, d.min, d.max, d.count
+                    "  {} | avg: {:.1}  min: {:.1}  max: {:.1}  (n={}) [{}]",
+                    d.label, avg, min, max, d.count, unit
                 );
             }
             println!();
@@ -29,7 +33,8 @@ pub fn run(metric_type: &str, period: Option<&str>, last: Option<u32>, human: bo
                 result.trend.direction, result.trend.rate, result.trend.rate_unit
             );
             if let Some(p) = result.trend.projected_30d {
-                println!("  30-day projection: {:.1}", p);
+                let (pv, pu) = openvital::core::units::to_display(p, &resolved, &config.units);
+                println!("  30-day projection: {:.1} {}", pv, pu);
             }
         }
     } else {

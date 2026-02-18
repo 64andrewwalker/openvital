@@ -27,6 +27,11 @@ pub fn run_set(key: &str, value: &str) -> Result<()> {
             config.profile.conditions = value.split(',').map(|s| s.trim().to_string()).collect();
         }
         "primary_exercise" => config.profile.primary_exercise = Some(value.to_string()),
+        "units.system" => match value {
+            "metric" => config.units = openvital::models::config::Units::default(),
+            "imperial" => config.units = openvital::models::config::Units::imperial(),
+            _ => anyhow::bail!("units.system must be 'metric' or 'imperial'"),
+        },
         k if k.starts_with("alias.") => {
             let alias = k.strip_prefix("alias.").unwrap();
             config.aliases.insert(alias.to_string(), value.to_string());

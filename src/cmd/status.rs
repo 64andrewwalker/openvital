@@ -11,7 +11,7 @@ pub fn run(human_flag: bool) -> Result<()> {
     let status = openvital::core::status::compute(&db, &config)?;
 
     if human_flag {
-        println!("{}", human::format_status(&status));
+        println!("{}", human::format_status(&status, &config.units));
     } else {
         let out = output::success("status", serde_json::to_value(&status)?);
         println!("{}", serde_json::to_string(&out)?);
