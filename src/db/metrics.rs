@@ -99,6 +99,35 @@ impl Database {
         Ok(metrics)
     }
 
+    /// Query metrics by type, ordered ascending by timestamp (oldest first).
+    pub fn query_by_type_asc(&self, metric_type: &str, limit: Option<u32>) -> Result<Vec<Metric>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, timestamp, category, type, value, unit, note, tags, source
+             FROM metrics WHERE type = ?1 ORDER BY timestamp ASC LIMIT ?2",
+        )?;
+        let limit = limit.unwrap_or(10000) as i64;
+        let rows = stmt.query_map(params![metric_type, limit], |row| {
+            Ok(MetricRow {
+                id: row.get(0)?,
+                timestamp: row.get(1)?,
+                category: row.get(2)?,
+                metric_type: row.get(3)?,
+                value: row.get(4)?,
+                unit: row.get(5)?,
+                note: row.get(6)?,
+                tags: row.get(7)?,
+                source: row.get(8)?,
+            })
+        })?;
+
+        let mut metrics = Vec::new();
+        for row in rows {
+            let r = row?;
+            metrics.push(row_to_metric(r)?);
+        }
+        Ok(metrics)
+    }
+
     pub fn query_by_date(&self, date: NaiveDate) -> Result<Vec<Metric>> {
         let start = format!("{}T00:00:00", date);
         let end = format!("{}T23:59:59", date);
