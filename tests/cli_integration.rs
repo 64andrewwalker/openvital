@@ -1973,3 +1973,136 @@ fn test_goal_status_human_with_specific_type() {
         .success()
         .stdout(predicate::str::contains("water"));
 }
+
+// ── blood pressure ───────────────────────────────────────────────────────────
+
+#[test]
+fn test_log_blood_pressure_splits_into_two_entries() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let db_path = dir.path().join("data.db");
+    let db = openvital::db::Database::open(&db_path).unwrap();
+    let config = openvital::models::config::Config::default();
+
+    // Simulate the split that cmd/log.rs does for "blood_pressure" "120/80"
+    let m1 = openvital::core::logging::log_metric(
+        &db,
+        &config,
+        openvital::core::logging::LogEntry {
+            metric_type: "bp_systolic",
+            value: 120.0,
+            note: None,
+            tags: None,
+            source: None,
+            date: None,
+        },
+    )
+    .unwrap();
+    let m2 = openvital::core::logging::log_metric(
+        &db,
+        &config,
+        openvital::core::logging::LogEntry {
+            metric_type: "bp_diastolic",
+            value: 80.0,
+            note: None,
+            tags: None,
+            source: None,
+            date: None,
+        },
+    )
+    .unwrap();
+
+    assert_eq!(m1.unit, "mmHg");
+    assert_eq!(m2.unit, "mmHg");
+    assert_eq!(m1.value, 120.0);
+    assert_eq!(m2.value, 80.0);
+    assert_eq!(m1.metric_type, "bp_systolic");
+    assert_eq!(m2.metric_type, "bp_diastolic");
+}
+
+#[test]
+fn test_log_blood_pressure_cli_json_output() {
+    let dir = TempDir::new().unwrap();
+    init_dir(&dir);
+
+    let assert = cmd_in(&dir)
+        .args(["log", "blood_pressure", "120/80"])
+        .assert()
+        .success();
+
+    let json = parse_json(&assert);
+    assert_eq!(json["status"], "ok");
+    assert_eq!(json["command"], "log");
+    let entries = json["data"]["entries"].as_array().unwrap();
+    assert_eq!(entries.len(), 2);
+    assert_eq!(entries[0]["type"], "bp_systolic");
+    assert_eq!(entries[0]["value"], 120.0);
+    assert_eq!(entries[0]["unit"], "mmHg");
+    assert_eq!(entries[1]["type"], "bp_diastolic");
+    assert_eq!(entries[1]["value"], 80.0);
+    assert_eq!(entries[1]["unit"], "mmHg");
+}
+
+#[test]
+fn test_log_blood_pressure_bp_alias_json_output() {
+    let dir = TempDir::new().unwrap();
+    init_dir(&dir);
+
+    let assert = cmd_in(&dir)
+        .args(["log", "bp", "130/85"])
+        .assert()
+        .success();
+
+    let json = parse_json(&assert);
+    assert_eq!(json["status"], "ok");
+    let entries = json["data"]["entries"].as_array().unwrap();
+    assert_eq!(entries.len(), 2);
+    assert_eq!(entries[0]["value"], 130.0);
+    assert_eq!(entries[1]["value"], 85.0);
+}
+
+#[test]
+fn test_log_blood_pressure_human_output() {
+    let dir = TempDir::new().unwrap();
+    init_dir(&dir);
+
+    cmd_in(&dir)
+        .args(["--human", "log", "blood_pressure", "120/80"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("BP 120/80 mmHg"));
+}
+
+// ── batch simple format ──────────────────────────────────────────────────────
+
+#[test]
+fn test_batch_simple_format_parsing() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let db_path = dir.path().join("data.db");
+    let db = openvital::db::Database::open(&db_path).unwrap();
+    let config = openvital::models::config::Config::default();
+
+    // Simple format: "weight:72.5,sleep:7.5,mood:8"
+    let simple = "weight:72.5,sleep:7.5,mood:8";
+    let json_str = openvital::core::logging::parse_simple_batch(simple).unwrap();
+    let metrics = openvital::core::logging::log_batch(&db, &config, &json_str).unwrap();
+
+    assert_eq!(metrics.len(), 3);
+    assert_eq!(metrics[0].metric_type, "weight");
+    assert_eq!(metrics[0].value, 72.5);
+    assert_eq!(metrics[1].metric_type, "sleep");
+    assert_eq!(metrics[1].value, 7.5);
+    assert_eq!(metrics[2].metric_type, "mood");
+    assert_eq!(metrics[2].value, 8.0);
+}
+
+#[test]
+fn test_batch_simple_format_invalid_entry() {
+    let result = openvital::core::logging::parse_simple_batch("weight72.5");
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_batch_simple_format_invalid_value() {
+    let result = openvital::core::logging::parse_simple_batch("weight:abc");
+    assert!(result.is_err());
+}

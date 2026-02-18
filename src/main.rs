@@ -19,10 +19,10 @@ fn main() {
             batch,
         } => {
             if let Some(batch_json) = batch {
-                cmd::log::run_batch(&batch_json)
+                cmd::log::run_batch(&batch_json, cli.human)
             } else {
                 let t = r#type.as_deref().expect("type is required");
-                let v = value.expect("value is required");
+                let v = value.as_deref().expect("value is required");
                 cmd::log::run(
                     t,
                     v,

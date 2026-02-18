@@ -319,7 +319,11 @@ fn test_projection_clamped_to_reasonable_range() {
     let projected = result.trend.projected_30d.unwrap();
     // Without clamp, projection would be 60 + (-20 * 4.3) ≈ -26 (absurd)
     // With clamp, should be >= 60 * 0.5 = 30
-    assert!(projected >= 30.0, "projection {} should be >= 30.0", projected);
+    assert!(
+        projected >= 30.0,
+        "projection {} should be >= 30.0",
+        projected
+    );
     assert!(projected >= 0.0, "projection should never be negative");
 }
 
@@ -341,5 +345,9 @@ fn test_projection_clamped_upper_bound() {
     let projected = result.trend.projected_30d.unwrap();
     // Without clamp, projection would be 100 + 50 * 4.3 = 315 (absurd)
     // With clamp, should be <= 100 * 1.5 = 150
-    assert!(projected <= 150.0, "projection {} should be <= 150.0", projected);
+    assert!(
+        projected <= 150.0,
+        "projection {} should be <= 150.0",
+        projected
+    );
 }
