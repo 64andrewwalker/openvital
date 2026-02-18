@@ -2,6 +2,7 @@ use anyhow::Result;
 use serde_json::json;
 
 use crate::models::config::Config;
+use crate::output;
 
 pub fn run_show(human: bool) -> Result<()> {
     let config = Config::load()?;
@@ -9,7 +10,7 @@ pub fn run_show(human: bool) -> Result<()> {
         let toml_str = toml::to_string_pretty(&config)?;
         println!("{}", toml_str);
     } else {
-        let out = crate::output::success("config", json!({ "config": config }));
+        let out = output::success("config", json!({ "config": config }));
         println!("{}", serde_json::to_string(&out)?);
     }
     Ok(())
@@ -34,6 +35,10 @@ pub fn run_set(key: &str, value: &str) -> Result<()> {
     }
 
     config.save()?;
-    println!("{{\"status\":\"ok\",\"key\":\"{}\",\"value\":\"{}\"}}", key, value);
+    let out = output::success(
+        "config",
+        json!({ "key": key, "value": value }),
+    );
+    println!("{}", serde_json::to_string(&out)?);
     Ok(())
 }

@@ -1,7 +1,9 @@
 use anyhow::Result;
 use std::io::{self, Write};
 
+use crate::db::Database;
 use crate::models::config::Config;
+use crate::models::metric::Metric;
 
 pub fn run(skip: bool) -> Result<()> {
     let mut config = Config::load().unwrap_or_default();
@@ -20,7 +22,8 @@ pub fn run(skip: bool) -> Result<()> {
 
         let conditions = prompt_string("Known conditions (comma separated, or empty)")?;
         if !conditions.is_empty() {
-            config.profile.conditions = conditions.split(',').map(|s| s.trim().to_string()).collect();
+            config.profile.conditions =
+                conditions.split(',').map(|s| s.trim().to_string()).collect();
         }
 
         config.profile.primary_exercise = Some(prompt_string("Primary exercise type")?);
@@ -28,8 +31,8 @@ pub fn run(skip: bool) -> Result<()> {
         config.save()?;
 
         // Log initial weight
-        let db = crate::db::Database::open(&Config::db_path())?;
-        let m = crate::models::metric::Metric::new("weight".into(), weight);
+        let db = Database::open(&Config::db_path())?;
+        let m = Metric::new("weight".into(), weight);
         db.insert_metric(&m)?;
 
         println!("\nSetup complete. Data stored in {:?}", Config::data_dir());
