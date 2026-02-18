@@ -1,5 +1,6 @@
 use chrono::NaiveDate;
-use clap::{Parser, Subcommand};
+use clap::{CommandFactory, Parser, Subcommand};
+use clap_complete::Shell;
 
 #[derive(Parser)]
 #[command(
@@ -18,6 +19,14 @@ pub struct Cli {
     /// Override date (YYYY-MM-DD)
     #[arg(long, global = true)]
     pub date: Option<NaiveDate>,
+
+    /// Minimal output (just confirmation or error)
+    #[arg(long, short = 'q', global = true)]
+    pub quiet: bool,
+
+    /// Custom config file path
+    #[arg(long = "config", global = true)]
+    pub config_path: Option<String>,
 }
 
 #[derive(Subcommand)]
@@ -74,6 +83,25 @@ pub enum Commands {
         to: Option<NaiveDate>,
     },
 
+    /// Analyze trends and projections
+    Trend {
+        /// Metric type (e.g. weight, cardio)
+        #[arg(required_unless_present = "correlate")]
+        r#type: Option<String>,
+
+        /// Period: daily, weekly, or monthly
+        #[arg(long)]
+        period: Option<String>,
+
+        /// Number of periods to show
+        #[arg(long)]
+        last: Option<u32>,
+
+        /// Correlation analysis between two metrics (comma-separated)
+        #[arg(long)]
+        correlate: Option<String>,
+    },
+
     /// Quick status overview
     Status,
 
@@ -87,6 +115,65 @@ pub enum Commands {
     Config {
         #[command(subcommand)]
         action: ConfigAction,
+    },
+
+    /// Generate a report for a time period
+    Report {
+        /// Period: week or month
+        #[arg(long)]
+        period: Option<String>,
+
+        /// Month in YYYY-MM format (for --period month)
+        #[arg(long)]
+        month: Option<String>,
+
+        /// Start date
+        #[arg(long)]
+        from: Option<NaiveDate>,
+
+        /// End date
+        #[arg(long)]
+        to: Option<NaiveDate>,
+    },
+
+    /// Export data for backup or analysis
+    Export {
+        /// Output format: csv or json
+        #[arg(long, default_value = "json")]
+        format: String,
+
+        /// Output file path (stdout if omitted)
+        #[arg(long)]
+        output: Option<String>,
+
+        /// Filter by metric type
+        #[arg(long)]
+        r#type: Option<String>,
+
+        /// Filter from date
+        #[arg(long)]
+        from: Option<NaiveDate>,
+
+        /// Filter to date
+        #[arg(long)]
+        to: Option<NaiveDate>,
+    },
+
+    /// Import data from external sources
+    Import {
+        /// Source format: csv, json
+        #[arg(long)]
+        source: String,
+
+        /// Input file path
+        #[arg(long)]
+        file: String,
+    },
+
+    /// Generate shell completions
+    Completions {
+        /// Shell to generate completions for
+        shell: Shell,
     },
 }
 
@@ -129,4 +216,10 @@ pub enum ConfigAction {
         /// Config value
         value: String,
     },
+}
+
+/// Generate shell completions and print to stdout.
+pub fn print_completions(shell: Shell) {
+    let mut cmd = Cli::command();
+    clap_complete::generate(shell, &mut cmd, "openvital", &mut std::io::stdout());
 }

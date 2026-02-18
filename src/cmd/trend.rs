@@ -38,3 +38,28 @@ pub fn run(metric_type: &str, period: Option<&str>, last: Option<u32>, human: bo
     }
     Ok(())
 }
+
+pub fn run_correlate(metrics: &str, last: Option<u32>, human: bool) -> Result<()> {
+    let config = Config::load()?;
+    let db = Database::open(&Config::db_path())?;
+
+    let parts: Vec<&str> = metrics.split(',').collect();
+    if parts.len() != 2 {
+        anyhow::bail!("--correlate requires exactly two metric types separated by comma");
+    }
+    let a = config.resolve_alias(parts[0].trim());
+    let b = config.resolve_alias(parts[1].trim());
+
+    let result = trend::correlate(&db, &a, &b, last)?;
+
+    if human {
+        println!("Correlation: {} vs {}\n", result.metric_a, result.metric_b);
+        println!("  Coefficient: {:.2}", result.coefficient);
+        println!("  Data points: {}", result.data_points);
+        println!("  Strength: {}", result.interpretation);
+    } else {
+        let out = output::success("correlate", serde_json::to_value(&result)?);
+        println!("{}", serde_json::to_string(&out)?);
+    }
+    Ok(())
+}

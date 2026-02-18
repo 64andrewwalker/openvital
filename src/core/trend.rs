@@ -6,6 +6,15 @@ use std::str::FromStr;
 
 use crate::db::Database;
 
+#[derive(Debug, Serialize)]
+pub struct CorrelationResult {
+    pub metric_a: String,
+    pub metric_b: String,
+    pub coefficient: f64,
+    pub data_points: usize,
+    pub interpretation: String,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum TrendPeriod {
     Daily,
@@ -189,4 +198,92 @@ fn compute_trend(data: &[PeriodData], period: &TrendPeriod) -> TrendSummary {
         rate_unit: format!("per {}", period_label(period)),
         projected_30d: Some(projected),
     }
+}
+
+/// Compute Pearson correlation between two metric types using daily averages.
+pub fn correlate(
+    db: &Database,
+    metric_a: &str,
+    metric_b: &str,
+    last_days: Option<u32>,
+) -> Result<CorrelationResult> {
+    let entries_a = db.query_by_type_asc(metric_a, None)?;
+    let entries_b = db.query_by_type_asc(metric_b, None)?;
+
+    // Group by date, compute daily averages
+    let avg_a = daily_averages(&entries_a);
+    let avg_b = daily_averages(&entries_b);
+
+    // Find matching dates
+    let mut pairs: Vec<(f64, f64)> = Vec::new();
+    let cutoff =
+        last_days.map(|d| chrono::Local::now().date_naive() - chrono::Duration::days(d as i64));
+
+    for (date, val_a) in &avg_a {
+        if let Some(cutoff_date) = cutoff
+            && *date < cutoff_date
+        {
+            continue;
+        }
+        if let Some(val_b) = avg_b.get(date) {
+            pairs.push((*val_a, *val_b));
+        }
+    }
+
+    let n = pairs.len();
+    if n < 2 {
+        return Ok(CorrelationResult {
+            metric_a: metric_a.to_string(),
+            metric_b: metric_b.to_string(),
+            coefficient: 0.0,
+            data_points: n,
+            interpretation: "insufficient data".to_string(),
+        });
+    }
+
+    // Pearson correlation coefficient
+    let sum_a: f64 = pairs.iter().map(|(a, _)| a).sum();
+    let sum_b: f64 = pairs.iter().map(|(_, b)| b).sum();
+    let sum_ab: f64 = pairs.iter().map(|(a, b)| a * b).sum();
+    let sum_aa: f64 = pairs.iter().map(|(a, _)| a * a).sum();
+    let sum_bb: f64 = pairs.iter().map(|(_, b)| b * b).sum();
+    let nf = n as f64;
+
+    let numerator = nf * sum_ab - sum_a * sum_b;
+    let denominator = ((nf * sum_aa - sum_a * sum_a) * (nf * sum_bb - sum_b * sum_b)).sqrt();
+
+    let coefficient = if denominator.abs() < 1e-10 {
+        0.0
+    } else {
+        (numerator / denominator * 100.0).round() / 100.0
+    };
+
+    let interpretation = match coefficient.abs() {
+        r if r < 0.3 => "weak",
+        r if r < 0.7 => "moderate",
+        _ => "strong",
+    }
+    .to_string();
+
+    Ok(CorrelationResult {
+        metric_a: metric_a.to_string(),
+        metric_b: metric_b.to_string(),
+        coefficient,
+        data_points: n,
+        interpretation,
+    })
+}
+
+fn daily_averages(entries: &[crate::models::metric::Metric]) -> BTreeMap<NaiveDate, f64> {
+    let mut day_sums: BTreeMap<NaiveDate, (f64, u32)> = BTreeMap::new();
+    for e in entries {
+        let date = e.timestamp.date_naive();
+        let entry = day_sums.entry(date).or_insert((0.0, 0));
+        entry.0 += e.value;
+        entry.1 += 1;
+    }
+    day_sums
+        .into_iter()
+        .map(|(date, (sum, count))| (date, sum / count as f64))
+        .collect()
 }

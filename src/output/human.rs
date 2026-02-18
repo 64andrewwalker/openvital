@@ -36,5 +36,22 @@ pub fn format_status(s: &StatusData) -> String {
             s.today.pain_alerts.len()
         ));
     }
+
+    // Streaks
+    if s.streaks.logging_days > 0 {
+        out.push_str(&format!(
+            "\nLogging streak: {} day(s)",
+            s.streaks.logging_days
+        ));
+    }
+
+    // Consecutive pain alerts
+    for alert in &s.consecutive_pain_alerts {
+        out.push_str(&format!(
+            "\n!! {} above threshold for {} consecutive days (latest: {})",
+            alert.metric_type, alert.consecutive_days, alert.latest_value
+        ));
+    }
+
     out
 }

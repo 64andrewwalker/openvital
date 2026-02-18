@@ -131,6 +131,17 @@ impl Database {
     pub fn query_by_date(&self, date: NaiveDate) -> Result<Vec<Metric>> {
         let start = format!("{}T00:00:00", date);
         let end = format!("{}T23:59:59", date);
+        self.query_by_range_str(&start, &end)
+    }
+
+    /// Query metrics within a date range (inclusive).
+    pub fn query_by_date_range(&self, from: NaiveDate, to: NaiveDate) -> Result<Vec<Metric>> {
+        let start = format!("{}T00:00:00", from);
+        let end = format!("{}T23:59:59", to);
+        self.query_by_range_str(&start, &end)
+    }
+
+    fn query_by_range_str(&self, start: &str, end: &str) -> Result<Vec<Metric>> {
         let mut stmt = self.conn.prepare(
             "SELECT id, timestamp, category, type, value, unit, note, tags, source
              FROM metrics WHERE timestamp >= ?1 AND timestamp <= ?2 ORDER BY timestamp",
@@ -155,5 +166,85 @@ impl Database {
             metrics.push(row_to_metric(r)?);
         }
         Ok(metrics)
+    }
+
+    /// Query all entries (ascending), optionally filtered by type and date range.
+    pub fn query_all(
+        &self,
+        metric_type: Option<&str>,
+        from: Option<NaiveDate>,
+        to: Option<NaiveDate>,
+    ) -> Result<Vec<Metric>> {
+        let from_str = from.map(|d| format!("{}T00:00:00", d)).unwrap_or_default();
+        let to_str = to
+            .map(|d| format!("{}T23:59:59", d))
+            .unwrap_or_else(|| "9999-12-31T23:59:59".to_string());
+
+        let sql = if let Some(t) = metric_type {
+            let mut stmt = self.conn.prepare(
+                "SELECT id, timestamp, category, type, value, unit, note, tags, source
+                 FROM metrics WHERE type = ?1 AND timestamp >= ?2 AND timestamp <= ?3
+                 ORDER BY timestamp ASC",
+            )?;
+            let rows = stmt.query_map(params![t, from_str, to_str], |row| {
+                Ok(MetricRow {
+                    id: row.get(0)?,
+                    timestamp: row.get(1)?,
+                    category: row.get(2)?,
+                    metric_type: row.get(3)?,
+                    value: row.get(4)?,
+                    unit: row.get(5)?,
+                    note: row.get(6)?,
+                    tags: row.get(7)?,
+                    source: row.get(8)?,
+                })
+            })?;
+            let mut metrics = Vec::new();
+            for row in rows {
+                metrics.push(row_to_metric(row?)?);
+            }
+            return Ok(metrics);
+        } else {
+            "SELECT id, timestamp, category, type, value, unit, note, tags, source
+             FROM metrics WHERE timestamp >= ?1 AND timestamp <= ?2
+             ORDER BY timestamp ASC"
+        };
+
+        let mut stmt = self.conn.prepare(sql)?;
+        let rows = stmt.query_map(params![from_str, to_str], |row| {
+            Ok(MetricRow {
+                id: row.get(0)?,
+                timestamp: row.get(1)?,
+                category: row.get(2)?,
+                metric_type: row.get(3)?,
+                value: row.get(4)?,
+                unit: row.get(5)?,
+                note: row.get(6)?,
+                tags: row.get(7)?,
+                source: row.get(8)?,
+            })
+        })?;
+
+        let mut metrics = Vec::new();
+        for row in rows {
+            metrics.push(row_to_metric(row?)?);
+        }
+        Ok(metrics)
+    }
+
+    /// Get distinct dates that have any entries, within a range, ordered descending.
+    pub fn distinct_entry_dates(&self, from: NaiveDate, to: NaiveDate) -> Result<Vec<String>> {
+        let start = format!("{}T00:00:00", from);
+        let end = format!("{}T23:59:59", to);
+        let mut stmt = self.conn.prepare(
+            "SELECT DISTINCT date(timestamp) as d FROM metrics
+             WHERE timestamp >= ?1 AND timestamp <= ?2 ORDER BY d DESC",
+        )?;
+        let rows = stmt.query_map(params![start, end], |row| row.get::<_, String>(0))?;
+        let mut dates = Vec::new();
+        for row in rows {
+            dates.push(row?);
+        }
+        Ok(dates)
     }
 }
