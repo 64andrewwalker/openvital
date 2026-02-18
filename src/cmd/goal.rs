@@ -19,12 +19,16 @@ pub fn run_set(
 
     let dir: Direction = direction.parse()?;
     let tf: Timeframe = timeframe.parse()?;
-    let goal = openvital::core::goal::set_goal(&db, resolved, target_value, dir, tf)?;
+    // Convert target from user units (e.g., imperial) to metric for storage
+    let stored_target = openvital::core::units::from_input(target_value, &resolved, &config.units);
+    let goal = openvital::core::goal::set_goal(&db, resolved, stored_target, dir, tf)?;
 
     if human {
+        let (display_target, display_unit) =
+            openvital::core::units::to_display(goal.target_value, &goal.metric_type, &config.units);
         println!(
-            "Goal set: {} {} {} ({})",
-            goal.metric_type, goal.direction, goal.target_value, goal.timeframe
+            "Goal set: {} {} {:.1} {} ({})",
+            goal.metric_type, goal.direction, display_target, display_unit, goal.timeframe
         );
     } else {
         let out = output::success("goal", json!({ "goal": goal }));
@@ -46,10 +50,21 @@ pub fn run_status(metric_type: Option<&str>, human: bool) -> Result<()> {
         } else {
             for s in &statuses {
                 let met = if s.is_met { "MET" } else { "..." };
-                let progress = s.progress.as_deref().unwrap_or("no data");
+                let (display_target, display_unit) = openvital::core::units::to_display(
+                    s.target_value,
+                    &s.metric_type,
+                    &config.units,
+                );
+                let progress = format_progress_human(s, &config.units);
                 println!(
-                    "[{}] {} {} {} ({}) — {}",
-                    met, s.metric_type, s.direction, s.target_value, s.timeframe, progress
+                    "[{}] {} {} {:.1} {} ({}) — {}",
+                    met,
+                    s.metric_type,
+                    s.direction,
+                    display_target,
+                    display_unit,
+                    s.timeframe,
+                    progress
                 );
             }
         }
@@ -58,6 +73,63 @@ pub fn run_status(metric_type: Option<&str>, human: bool) -> Result<()> {
         println!("{}", serde_json::to_string(&out)?);
     }
     Ok(())
+}
+
+fn format_progress_human(
+    status: &openvital::core::goal::GoalStatus,
+    units: &openvital::models::config::Units,
+) -> String {
+    let Some(current_raw) = status.current_value else {
+        return "no data".to_string();
+    };
+
+    let (current, unit) =
+        openvital::core::units::to_display(current_raw, &status.metric_type, units);
+    let (target, _) =
+        openvital::core::units::to_display(status.target_value, &status.metric_type, units);
+
+    match status.direction.as_str() {
+        "below" => {
+            if current_raw <= status.target_value {
+                format!("at target ({:.1} <= {:.1} {})", current, target, unit)
+            } else {
+                format!(
+                    "{:.1} to go ({:.1} -> {:.1} {})",
+                    current - target,
+                    current,
+                    target,
+                    unit
+                )
+            }
+        }
+        "above" => {
+            if current_raw >= status.target_value {
+                format!("target met ({:.1} >= {:.1} {})", current, target, unit)
+            } else {
+                format!(
+                    "{:.1} remaining ({:.1}/{:.1} {})",
+                    target - current,
+                    current,
+                    target,
+                    unit
+                )
+            }
+        }
+        "equal" => {
+            if (current_raw - status.target_value).abs() < f64::EPSILON {
+                format!("at target ({:.1} {})", current, unit)
+            } else {
+                format!(
+                    "current: {:.1} {}, target: {:.1} {}",
+                    current, unit, target, unit
+                )
+            }
+        }
+        _ => status
+            .progress
+            .clone()
+            .unwrap_or_else(|| "no data".to_string()),
+    }
 }
 
 pub fn run_remove(goal_id: &str, human: bool) -> Result<()> {

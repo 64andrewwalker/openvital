@@ -36,6 +36,9 @@ pub enum Commands {
         /// Skip interactive setup, use defaults
         #[arg(long)]
         skip: bool,
+        /// Unit system: metric (default) or imperial
+        #[arg(long)]
+        units: Option<String>,
     },
 
     /// Log a metric entry

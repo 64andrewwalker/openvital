@@ -26,20 +26,43 @@ pub struct Profile {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Units {
+    #[serde(default = "default_system")]
+    pub system: String,
     pub weight: String,
     pub height: String,
     pub water: String,
     pub temperature: String,
 }
 
+fn default_system() -> String {
+    "metric".to_string()
+}
+
 impl Default for Units {
     fn default() -> Self {
         Self {
+            system: "metric".to_string(),
             weight: "kg".to_string(),
             height: "cm".to_string(),
             water: "ml".to_string(),
             temperature: "celsius".to_string(),
         }
+    }
+}
+
+impl Units {
+    pub fn imperial() -> Self {
+        Self {
+            system: "imperial".to_string(),
+            weight: "lbs".to_string(),
+            height: "ft".to_string(),
+            water: "fl_oz".to_string(),
+            temperature: "fahrenheit".to_string(),
+        }
+    }
+
+    pub fn is_imperial(&self) -> bool {
+        self.system == "imperial"
     }
 }
 

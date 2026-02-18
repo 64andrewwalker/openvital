@@ -5,6 +5,7 @@ use openvital::core::status::{
     ConsecutivePainAlert, ProfileStatus, StatusData, Streaks, TodayStatus,
 };
 use openvital::models::Metric;
+use openvital::models::config::Units;
 use openvital::output::human::{format_metric, format_status};
 use openvital::output::{error, success};
 use serde_json::json;
@@ -270,7 +271,7 @@ fn make_status(
 fn test_format_status_contains_date() {
     let date = NaiveDate::from_ymd_opt(2026, 2, 15).unwrap();
     let s = make_status(date, vec![], vec![], 0, vec![], None, None, None, None);
-    let out = format_status(&s);
+    let out = format_status(&s, &Units::default());
     assert!(out.contains("2026-02-15"), "header should contain date");
 }
 
@@ -279,7 +280,7 @@ fn test_format_status_contains_date() {
 fn test_format_status_no_entries() {
     let date = NaiveDate::from_ymd_opt(2026, 2, 15).unwrap();
     let s = make_status(date, vec![], vec![], 0, vec![], None, None, None, None);
-    let out = format_status(&s);
+    let out = format_status(&s, &Units::default());
     assert!(out.contains("No entries logged today"));
 }
 
@@ -289,7 +290,7 @@ fn test_format_status_logged_types() {
     let date = NaiveDate::from_ymd_opt(2026, 2, 15).unwrap();
     let logged = vec!["weight".to_string(), "cardio".to_string()];
     let s = make_status(date, logged, vec![], 0, vec![], None, None, None, None);
-    let out = format_status(&s);
+    let out = format_status(&s, &Units::default());
     assert!(out.contains("weight"), "should list weight");
     assert!(out.contains("cardio"), "should list cardio");
     assert!(out.contains("Logged today"));
@@ -310,7 +311,7 @@ fn test_format_status_weight_and_bmi() {
         Some(24.5),
         Some("normal"),
     );
-    let out = format_status(&s);
+    let out = format_status(&s, &Units::default());
     assert!(out.contains("75"), "should show weight");
     assert!(
         out.contains("24.5") || out.contains("BMI"),
@@ -324,7 +325,7 @@ fn test_format_status_weight_and_bmi() {
 fn test_format_status_no_weight_no_bmi_line() {
     let date = NaiveDate::from_ymd_opt(2026, 2, 15).unwrap();
     let s = make_status(date, vec![], vec![], 0, vec![], None, None, None, None);
-    let out = format_status(&s);
+    let out = format_status(&s, &Units::default());
     assert!(!out.contains("BMI"), "BMI line should be absent");
     assert!(!out.contains("kg"), "weight line should be absent");
 }
@@ -345,7 +346,7 @@ fn test_format_status_pain_alerts_shown() {
         None,
         None,
     );
-    let out = format_status(&s);
+    let out = format_status(&s, &Units::default());
     assert!(out.contains("Pain alerts"), "should mention pain alerts");
     assert!(out.contains('1'), "should show count of 1 alert");
 }
@@ -355,7 +356,7 @@ fn test_format_status_pain_alerts_shown() {
 fn test_format_status_no_pain_alerts_section() {
     let date = NaiveDate::from_ymd_opt(2026, 2, 15).unwrap();
     let s = make_status(date, vec![], vec![], 0, vec![], None, None, None, None);
-    let out = format_status(&s);
+    let out = format_status(&s, &Units::default());
     assert!(!out.contains("Pain alerts"));
 }
 
@@ -364,7 +365,7 @@ fn test_format_status_no_pain_alerts_section() {
 fn test_format_status_streak_shown() {
     let date = NaiveDate::from_ymd_opt(2026, 2, 15).unwrap();
     let s = make_status(date, vec![], vec![], 7, vec![], None, None, None, None);
-    let out = format_status(&s);
+    let out = format_status(&s, &Units::default());
     assert!(out.contains("Logging streak"), "should mention streak");
     assert!(out.contains('7'), "should show streak count");
 }
@@ -374,7 +375,7 @@ fn test_format_status_streak_shown() {
 fn test_format_status_streak_zero_omitted() {
     let date = NaiveDate::from_ymd_opt(2026, 2, 15).unwrap();
     let s = make_status(date, vec![], vec![], 0, vec![], None, None, None, None);
-    let out = format_status(&s);
+    let out = format_status(&s, &Units::default());
     assert!(
         !out.contains("Logging streak"),
         "streak line should be absent when zero"
@@ -391,7 +392,7 @@ fn test_format_status_consecutive_pain_alert() {
         latest_value: 7.0,
     };
     let s = make_status(date, vec![], vec![], 0, vec![alert], None, None, None, None);
-    let out = format_status(&s);
+    let out = format_status(&s, &Units::default());
     assert!(
         out.contains("!!"),
         "consecutive pain alert should use '!!' prefix"
@@ -418,7 +419,7 @@ fn test_format_status_multiple_consecutive_pain_alerts() {
         },
     ];
     let s = make_status(date, vec![], vec![], 0, alerts, None, None, None, None);
-    let out = format_status(&s);
+    let out = format_status(&s, &Units::default());
     assert!(out.contains("pain"), "should mention pain");
     assert!(out.contains("soreness"), "should mention soreness");
     // Two '!!' markers expected
@@ -430,7 +431,7 @@ fn test_format_status_multiple_consecutive_pain_alerts() {
 fn test_format_status_starts_with_header() {
     let date = NaiveDate::from_ymd_opt(2026, 1, 1).unwrap();
     let s = make_status(date, vec![], vec![], 0, vec![], None, None, None, None);
-    let out = format_status(&s);
+    let out = format_status(&s, &Units::default());
     assert!(
         out.starts_with("=== OpenVital Status"),
         "should start with header"
@@ -458,7 +459,7 @@ fn test_format_status_full() {
         Some(25.9),
         Some("overweight"),
     );
-    let out = format_status(&s);
+    let out = format_status(&s, &Units::default());
     assert!(out.contains("2026-02-18"));
     assert!(out.contains("82"));
     assert!(out.contains("25.9"));

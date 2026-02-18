@@ -34,12 +34,17 @@ pub fn run(
             .parse()
             .map_err(|_| anyhow::anyhow!("invalid diastolic value"))?;
 
+        // Convert from user units to metric for storage
+        let sys_metric = openvital::core::units::from_input(systolic, "bp_systolic", &config.units);
+        let dia_metric =
+            openvital::core::units::from_input(diastolic, "bp_diastolic", &config.units);
+
         let m1 = openvital::core::logging::log_metric(
             &db,
             &config,
             LogEntry {
                 metric_type: "bp_systolic",
-                value: systolic,
+                value: sys_metric,
                 note,
                 tags,
                 source,
@@ -51,7 +56,7 @@ pub fn run(
             &config,
             LogEntry {
                 metric_type: "bp_diastolic",
-                value: diastolic,
+                value: dia_metric,
                 note,
                 tags,
                 source,
@@ -60,7 +65,11 @@ pub fn run(
         )?;
 
         if human_flag {
-            println!("Logged: BP {}/{} {}", m1.value, m2.value, m1.unit);
+            let (sv, su) =
+                openvital::core::units::to_display(m1.value, "bp_systolic", &config.units);
+            let (dv, _) =
+                openvital::core::units::to_display(m2.value, "bp_diastolic", &config.units);
+            println!("Logged: BP {}/{} {}", sv, dv, su);
         } else {
             let out = output::success(
                 "log",
@@ -77,9 +86,12 @@ pub fn run(
     }
 
     // Normal single-value log
-    let value: f64 = value_str
+    let parsed: f64 = value_str
         .parse()
         .map_err(|_| anyhow::anyhow!("invalid value: {}", value_str))?;
+    // Convert from user units (e.g., imperial) to metric for storage
+    let resolved_type = config.resolve_alias(metric_type);
+    let value = openvital::core::units::from_input(parsed, &resolved_type, &config.units);
     let m = openvital::core::logging::log_metric(
         &db,
         &config,
@@ -94,7 +106,10 @@ pub fn run(
     )?;
 
     if human_flag {
-        println!("Logged: {}", human::format_metric(&m));
+        println!(
+            "Logged: {}",
+            human::format_metric_with_units(&m, &config.units)
+        );
     } else {
         let out = output::success(
             "log",
@@ -128,7 +143,10 @@ pub fn run_batch(batch_input: &str, human_flag: bool) -> Result<()> {
 
     if human_flag {
         for m in &metrics {
-            println!("Logged: {}", human::format_metric(m));
+            println!(
+                "Logged: {}",
+                human::format_metric_with_units(m, &config.units)
+            );
         }
     } else {
         let entries: Vec<_> = metrics

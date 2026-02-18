@@ -2162,6 +2162,228 @@ fn test_log_blood_pressure_human_output() {
         .stdout(predicate::str::contains("BP 120/80 mmHg"));
 }
 
+// ── imperial unit conversions ────────────────────────────────────────────────
+
+#[test]
+fn test_config_set_units_system_imperial() {
+    let dir = TempDir::new().unwrap();
+    init_dir(&dir);
+
+    cmd_in(&dir)
+        .args(["config", "set", "units.system", "imperial"])
+        .assert()
+        .success();
+
+    // Verify config shows imperial
+    let assert = cmd_in(&dir)
+        .args(["--human", "config", "show"])
+        .assert()
+        .success();
+    let stdout = String::from_utf8_lossy(&assert.get_output().stdout);
+    assert!(
+        stdout.contains("imperial"),
+        "config should show imperial, got: {}",
+        stdout
+    );
+    assert!(
+        stdout.contains("lbs"),
+        "config should show lbs, got: {}",
+        stdout
+    );
+}
+
+#[test]
+fn test_config_set_units_system_invalid_fails() {
+    let dir = TempDir::new().unwrap();
+    init_dir(&dir);
+
+    cmd_in(&dir)
+        .args(["config", "set", "units.system", "martian"])
+        .assert()
+        .failure();
+}
+
+#[test]
+fn test_log_weight_imperial_converts_and_displays() {
+    let dir = TempDir::new().unwrap();
+    init_dir(&dir);
+
+    // Set imperial
+    cmd_in(&dir)
+        .args(["config", "set", "units.system", "imperial"])
+        .assert()
+        .success();
+
+    // Log 160 lbs in human mode — should display lbs
+    cmd_in(&dir)
+        .args(["--human", "log", "weight", "160"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("lbs"));
+
+    // JSON output should show metric (kg) — value stored in kg
+    let assert = cmd_in(&dir)
+        .args(["log", "weight", "160"])
+        .assert()
+        .success();
+    let json = parse_json(&assert);
+    assert_eq!(json["data"]["entry"]["unit"], "kg");
+    // 160 lbs ~ 72.57 kg
+    let stored = json["data"]["entry"]["value"].as_f64().unwrap();
+    assert!(
+        stored < 100.0,
+        "stored value should be in kg (< 100), got: {}",
+        stored
+    );
+}
+
+#[test]
+fn test_log_batch_imperial_converts_to_metric_storage() {
+    let dir = TempDir::new().unwrap();
+    init_dir(&dir);
+
+    cmd_in(&dir)
+        .args(["config", "set", "units.system", "imperial"])
+        .assert()
+        .success();
+
+    cmd_in(&dir)
+        .args(["log", "--batch", r#"[{"type":"weight","value":160.0}]"#])
+        .assert()
+        .success();
+
+    let assert = cmd_in(&dir)
+        .args(["show", "weight", "--last", "1"])
+        .assert()
+        .success();
+    let json = parse_json(&assert);
+    let stored = json["data"]["entries"][0]["value"].as_f64().unwrap();
+    assert!(
+        stored < 100.0,
+        "batch entry should be stored in kg (< 100), got: {}",
+        stored
+    );
+}
+
+#[test]
+fn test_show_weight_imperial_displays_lbs() {
+    let dir = TempDir::new().unwrap();
+    init_dir(&dir);
+
+    cmd_in(&dir)
+        .args(["config", "set", "units.system", "imperial"])
+        .assert()
+        .success();
+
+    cmd_in(&dir)
+        .args(["log", "weight", "160"])
+        .assert()
+        .success();
+
+    cmd_in(&dir)
+        .args(["--human", "show", "weight"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("lbs"));
+}
+
+#[test]
+fn test_goal_set_imperial_converts_target() {
+    let dir = TempDir::new().unwrap();
+    init_dir(&dir);
+
+    cmd_in(&dir)
+        .args(["config", "set", "units.system", "imperial"])
+        .assert()
+        .success();
+
+    // Set goal: weight below 155 lbs
+    cmd_in(&dir)
+        .args(["goal", "set", "weight", "155", "below", "daily", "--human"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("155").and(predicate::str::contains("lbs")));
+
+    // JSON output: target_value should be stored in kg
+    let assert = cmd_in(&dir)
+        .args([
+            "goal",
+            "set",
+            "weight",
+            "--target",
+            "155",
+            "--direction",
+            "below",
+            "--timeframe",
+            "daily",
+        ])
+        .assert()
+        .success();
+    let json = parse_json(&assert);
+    let stored_target = json["data"]["goal"]["target_value"].as_f64().unwrap();
+    // 155 lbs ~ 70.3 kg
+    assert!(
+        stored_target < 100.0,
+        "goal target should be stored in kg (< 100), got: {}",
+        stored_target
+    );
+}
+
+#[test]
+fn test_goal_status_imperial_progress_uses_display_units() {
+    let dir = TempDir::new().unwrap();
+    init_dir(&dir);
+
+    cmd_in(&dir)
+        .args(["config", "set", "units.system", "imperial"])
+        .assert()
+        .success();
+
+    cmd_in(&dir)
+        .args(["goal", "set", "weight", "155", "below", "daily"])
+        .assert()
+        .success();
+
+    cmd_in(&dir)
+        .args(["log", "weight", "160"])
+        .assert()
+        .success();
+
+    cmd_in(&dir)
+        .args(["--human", "goal", "status"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("155.0 lbs").and(predicate::str::contains("160.0")));
+}
+
+#[test]
+fn test_trend_imperial_rate_uses_display_unit() {
+    let dir = TempDir::new().unwrap();
+    init_dir(&dir);
+
+    cmd_in(&dir)
+        .args(["config", "set", "units.system", "imperial"])
+        .assert()
+        .success();
+
+    cmd_in(&dir)
+        .args(["--date", "2026-02-16", "log", "weight", "160"])
+        .assert()
+        .success();
+    cmd_in(&dir)
+        .args(["--date", "2026-02-17", "log", "weight", "158"])
+        .assert()
+        .success();
+
+    cmd_in(&dir)
+        .args([
+            "--human", "trend", "weight", "--period", "daily", "--last", "2",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("lbs per daily"));
+}
+
 // ── batch simple format ──────────────────────────────────────────────────────
 
 #[test]

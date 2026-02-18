@@ -50,6 +50,7 @@ pub fn log_batch(db: &Database, config: &Config, batch_json: &str) -> Result<Vec
             .as_f64()
             .ok_or_else(|| anyhow::anyhow!("missing 'value' in batch entry"))?;
         let resolved = config.resolve_alias(metric_type);
+        let value = crate::core::units::from_input(value, &resolved, &config.units);
         let mut m = Metric::new(resolved, value);
         if let Some(n) = entry["note"].as_str() {
             m.note = Some(n.to_string());

@@ -1,5 +1,6 @@
 use crate::core::status::StatusData;
 use crate::models::Metric;
+use crate::models::config::Units;
 
 /// Pretty-print a single metric entry.
 pub fn format_metric(m: &Metric) -> String {
@@ -14,13 +15,33 @@ pub fn format_metric(m: &Metric) -> String {
     line
 }
 
+/// Pretty-print a single metric entry, converting to user's preferred unit system.
+pub fn format_metric_with_units(m: &Metric, user_units: &Units) -> String {
+    let ts = m.timestamp.format("%Y-%m-%d %H:%M");
+    let (display_val, display_unit) =
+        crate::core::units::to_display(m.value, &m.metric_type, user_units);
+    let mut line = format!(
+        "{} | {} = {} {}",
+        ts, m.metric_type, display_val, display_unit
+    );
+    if let Some(ref note) = m.note {
+        line.push_str(&format!("  # {}", note));
+    }
+    if !m.tags.is_empty() {
+        line.push_str(&format!("  [{}]", m.tags.join(", ")));
+    }
+    line
+}
+
 /// Pretty-print the status overview.
-pub fn format_status(s: &StatusData) -> String {
+pub fn format_status(s: &StatusData, user_units: &Units) -> String {
     let mut out = format!("=== OpenVital Status — {} ===\n\n", s.date);
     if let (Some(w), Some(b)) = (s.profile.latest_weight_kg, s.profile.bmi) {
+        let (display_w, display_wu) = crate::core::units::to_display(w, "weight", user_units);
         out.push_str(&format!(
-            "Weight: {} kg | BMI: {} ({})\n",
-            w,
+            "Weight: {} {} | BMI: {} ({})\n",
+            display_w,
+            display_wu,
             b,
             s.profile.bmi_category.unwrap_or("?")
         ));

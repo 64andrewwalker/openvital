@@ -13,6 +13,7 @@ pub fn run(
     to: Option<NaiveDate>,
     human: bool,
 ) -> Result<()> {
+    let config = Config::load()?;
     let db = Database::open(&Config::db_path())?;
 
     let (from_date, to_date) = resolve_range(period, month, from, to)?;
@@ -32,9 +33,15 @@ pub fn run(
         } else {
             println!();
             for s in &result.metrics {
+                let (avg, _) =
+                    openvital::core::units::to_display(s.avg, &s.metric_type, &config.units);
+                let (min, _) =
+                    openvital::core::units::to_display(s.min, &s.metric_type, &config.units);
+                let (max, unit) =
+                    openvital::core::units::to_display(s.max, &s.metric_type, &config.units);
                 println!(
                     "  {:16} | avg: {:8.1} min: {:8.1} max: {:8.1} (n={}) [{}]",
-                    s.metric_type, s.avg, s.min, s.max, s.count, s.unit
+                    s.metric_type, avg, min, max, s.count, unit
                 );
             }
         }
