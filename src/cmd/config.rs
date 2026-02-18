@@ -1,8 +1,8 @@
 use anyhow::Result;
 use serde_json::json;
 
-use crate::models::config::Config;
-use crate::output;
+use openvital::models::config::Config;
+use openvital::output;
 
 pub fn run_show(human: bool) -> Result<()> {
     let config = Config::load()?;

@@ -1,12 +1,8 @@
 mod cli;
 mod cmd;
-mod core;
-mod db;
-mod models;
-mod output;
 
 use clap::Parser;
-use cli::{Cli, Commands, ConfigAction};
+use cli::{Cli, Commands, ConfigAction, GoalAction};
 use std::process;
 
 fn main() {
@@ -45,6 +41,16 @@ fn main() {
             to: _,
         } => cmd::show::run(r#type.as_deref(), last, cli.date, cli.human),
         Commands::Status => cmd::status::run(cli.human),
+        Commands::Goal { action } => match action {
+            GoalAction::Set {
+                r#type,
+                target,
+                direction,
+                timeframe,
+            } => cmd::goal::run_set(&r#type, target, &direction, &timeframe, cli.human),
+            GoalAction::Status { r#type } => cmd::goal::run_status(r#type.as_deref(), cli.human),
+            GoalAction::Remove { goal_id } => cmd::goal::run_remove(&goal_id, cli.human),
+        },
         Commands::Config { action } => match action {
             ConfigAction::Show => cmd::config::run_show(cli.human),
             ConfigAction::Set { key, value } => cmd::config::run_set(&key, &value),
@@ -52,7 +58,7 @@ fn main() {
     };
 
     if let Err(e) = result {
-        let err = output::error("", "general_error", &e.to_string());
+        let err = openvital::output::error("", "general_error", &e.to_string());
         eprintln!("{}", serde_json::to_string(&err).unwrap());
         process::exit(1);
     }

@@ -1,3 +1,4 @@
+mod goals;
 mod metrics;
 mod migrate;
 

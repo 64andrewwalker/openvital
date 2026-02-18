@@ -1,9 +1,9 @@
 use anyhow::Result;
 use std::io::{self, Write};
 
-use crate::db::Database;
-use crate::models::config::Config;
-use crate::models::metric::Metric;
+use openvital::db::Database;
+use openvital::models::config::Config;
+use openvital::models::metric::Metric;
 
 pub fn run(skip: bool) -> Result<()> {
     let mut config = Config::load().unwrap_or_default();

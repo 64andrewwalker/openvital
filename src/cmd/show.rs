@@ -2,11 +2,11 @@ use anyhow::Result;
 use chrono::NaiveDate;
 use serde_json::json;
 
-use crate::core::query::{self, ShowResult};
-use crate::db::Database;
-use crate::models::config::Config;
-use crate::output;
-use crate::output::human;
+use openvital::core::query::{self, ShowResult};
+use openvital::db::Database;
+use openvital::models::config::Config;
+use openvital::output;
+use openvital::output::human;
 
 pub fn run(
     metric_type: Option<&str>,

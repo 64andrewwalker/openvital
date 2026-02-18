@@ -77,10 +77,44 @@ pub enum Commands {
     /// Quick status overview
     Status,
 
+    /// Manage goals
+    Goal {
+        #[command(subcommand)]
+        action: GoalAction,
+    },
+
     /// Manage configuration
     Config {
         #[command(subcommand)]
         action: ConfigAction,
+    },
+}
+
+#[derive(Subcommand)]
+pub enum GoalAction {
+    /// Set a goal for a metric type
+    Set {
+        /// Metric type (e.g. weight, cardio, water)
+        r#type: String,
+        /// Target value
+        #[arg(long)]
+        target: f64,
+        /// Direction: above, below, or equal
+        #[arg(long)]
+        direction: String,
+        /// Timeframe: daily, weekly, or monthly
+        #[arg(long)]
+        timeframe: String,
+    },
+    /// Check goal status
+    Status {
+        /// Optional metric type to filter
+        r#type: Option<String>,
+    },
+    /// Remove a goal
+    Remove {
+        /// Goal ID to remove
+        goal_id: String,
     },
 }
 

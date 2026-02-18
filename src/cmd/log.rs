@@ -2,11 +2,11 @@ use anyhow::Result;
 use chrono::NaiveDate;
 use serde_json::json;
 
-use crate::core::logging::LogEntry;
-use crate::db::Database;
-use crate::models::config::Config;
-use crate::output;
-use crate::output::human;
+use openvital::core::logging::LogEntry;
+use openvital::db::Database;
+use openvital::models::config::Config;
+use openvital::output;
+use openvital::output::human;
 
 pub fn run(
     metric_type: &str,
@@ -19,7 +19,7 @@ pub fn run(
 ) -> Result<()> {
     let config = Config::load()?;
     let db = Database::open(&Config::db_path())?;
-    let m = crate::core::logging::log_metric(
+    let m = openvital::core::logging::log_metric(
         &db,
         &config,
         LogEntry {
@@ -55,7 +55,7 @@ pub fn run(
 pub fn run_batch(batch_json: &str) -> Result<()> {
     let config = Config::load()?;
     let db = Database::open(&Config::db_path())?;
-    let metrics = crate::core::logging::log_batch(&db, &config, batch_json)?;
+    let metrics = openvital::core::logging::log_batch(&db, &config, batch_json)?;
 
     let entries: Vec<_> = metrics
         .iter()
