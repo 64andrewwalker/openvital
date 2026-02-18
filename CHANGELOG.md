@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.3.0](https://github.com/64andrewwalker/openvital/compare/v0.2.0...v0.3.0) (2026-02-18)
+
+
+### Features
+
+* add native imperial unit support ([#6](https://github.com/64andrewwalker/openvital/issues/6)) ([f7c092f](https://github.com/64andrewwalker/openvital/commit/f7c092fd221bc2a4393cddef3dce84a1682bdebb))
+
+
+### Bug Fixes
+
+* address 7 code review issues from imperial units PR ([2f678d5](https://github.com/64andrewwalker/openvital/commit/2f678d5a676b416f9415095aeb025112dedd431a))
+* address code review issues from imperial units PR ([d726773](https://github.com/64andrewwalker/openvital/commit/d7267734bb309c2bd81bdfc8700813a40203e9f0))
+
 ## [0.2.0](https://github.com/64andrewwalker/openvital/compare/v0.1.0...v0.2.0) (2026-02-18)
 
 
