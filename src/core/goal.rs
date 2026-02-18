@@ -70,6 +70,9 @@ pub fn goal_status(db: &Database, metric_type: Option<&str>) -> Result<Vec<GoalS
 
 /// Compute the current value for a goal based on its timeframe.
 fn compute_current(db: &Database, goal: &Goal, today: NaiveDate) -> Result<Option<f64>> {
+    use crate::models::metric::is_cumulative;
+    let cumulative = is_cumulative(&goal.metric_type);
+
     match goal.timeframe {
         Timeframe::Daily => {
             let entries = db.query_by_date(today)?;
@@ -80,17 +83,16 @@ fn compute_current(db: &Database, goal: &Goal, today: NaiveDate) -> Result<Optio
             if day_entries.is_empty() {
                 return Ok(None);
             }
-            // For "above" goals (cumulative like water), sum. For "below" goals, use latest.
-            match goal.direction {
-                Direction::Above => Ok(Some(day_entries.iter().map(|m| m.value).sum())),
-                _ => Ok(Some(day_entries.last().unwrap().value)),
+            if cumulative {
+                Ok(Some(day_entries.iter().map(|m| m.value).sum()))
+            } else {
+                Ok(Some(day_entries.last().unwrap().value))
             }
         }
         Timeframe::Weekly => {
             let weekday = today.weekday().num_days_from_monday();
             let week_start = today - chrono::Duration::days(weekday as i64);
-            let mut total = 0.0;
-            let mut count = 0;
+            let mut values = Vec::new();
             for i in 0..7 {
                 let date = week_start + chrono::Duration::days(i);
                 if date > today {
@@ -99,15 +101,16 @@ fn compute_current(db: &Database, goal: &Goal, today: NaiveDate) -> Result<Optio
                 let entries = db.query_by_date(date)?;
                 for m in &entries {
                     if m.metric_type == goal.metric_type {
-                        total += m.value;
-                        count += 1;
+                        values.push(m.value);
                     }
                 }
             }
-            if count == 0 {
+            if values.is_empty() {
                 Ok(None)
+            } else if cumulative {
+                Ok(Some(values.iter().sum()))
             } else {
-                Ok(Some(total))
+                Ok(Some(*values.last().unwrap()))
             }
         }
         Timeframe::Monthly => {
