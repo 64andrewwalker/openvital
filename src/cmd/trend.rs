@@ -30,7 +30,18 @@ pub fn run(metric_type: &str, period: Option<&str>, last: Option<u32>, human: bo
             println!();
             println!(
                 "  Direction: {} ({:+.1} {})",
-                result.trend.direction, result.trend.rate, result.trend.rate_unit
+                result.trend.direction,
+                openvital::core::units::to_display_rate(
+                    result.trend.rate,
+                    &resolved,
+                    &config.units
+                ),
+                format!(
+                    "{} {}",
+                    openvital::core::units::display_unit(&resolved, &config.units),
+                    result.trend.rate_unit
+                )
+                .trim()
             );
             if let Some(p) = result.trend.projected_30d {
                 let (pv, pu) = openvital::core::units::to_display(p, &resolved, &config.units);

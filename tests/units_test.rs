@@ -126,3 +126,16 @@ fn test_round_trip_height() {
     let (displayed, _) = units::to_display(stored, "height", &u);
     assert!((displayed - 5.8).abs() < 0.1);
 }
+
+#[test]
+fn test_to_display_rate_weight_imperial() {
+    let u = Units::imperial();
+    let val = units::to_display_rate(-0.9, "weight", &u);
+    assert!((val + 2.0).abs() < 0.1);
+}
+
+#[test]
+fn test_display_unit_weight_imperial() {
+    let u = Units::imperial();
+    assert_eq!(units::display_unit("weight", &u), "lbs");
+}

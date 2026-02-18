@@ -2238,6 +2238,34 @@ fn test_log_weight_imperial_converts_and_displays() {
 }
 
 #[test]
+fn test_log_batch_imperial_converts_to_metric_storage() {
+    let dir = TempDir::new().unwrap();
+    init_dir(&dir);
+
+    cmd_in(&dir)
+        .args(["config", "set", "units.system", "imperial"])
+        .assert()
+        .success();
+
+    cmd_in(&dir)
+        .args(["log", "--batch", r#"[{"type":"weight","value":160.0}]"#])
+        .assert()
+        .success();
+
+    let assert = cmd_in(&dir)
+        .args(["show", "weight", "--last", "1"])
+        .assert()
+        .success();
+    let json = parse_json(&assert);
+    let stored = json["data"]["entries"][0]["value"].as_f64().unwrap();
+    assert!(
+        stored < 100.0,
+        "batch entry should be stored in kg (< 100), got: {}",
+        stored
+    );
+}
+
+#[test]
 fn test_show_weight_imperial_displays_lbs() {
     let dir = TempDir::new().unwrap();
     init_dir(&dir);
@@ -2299,6 +2327,61 @@ fn test_goal_set_imperial_converts_target() {
         "goal target should be stored in kg (< 100), got: {}",
         stored_target
     );
+}
+
+#[test]
+fn test_goal_status_imperial_progress_uses_display_units() {
+    let dir = TempDir::new().unwrap();
+    init_dir(&dir);
+
+    cmd_in(&dir)
+        .args(["config", "set", "units.system", "imperial"])
+        .assert()
+        .success();
+
+    cmd_in(&dir)
+        .args(["goal", "set", "weight", "155", "below", "daily"])
+        .assert()
+        .success();
+
+    cmd_in(&dir)
+        .args(["log", "weight", "160"])
+        .assert()
+        .success();
+
+    cmd_in(&dir)
+        .args(["--human", "goal", "status"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("155.0 lbs").and(predicate::str::contains("160.0")));
+}
+
+#[test]
+fn test_trend_imperial_rate_uses_display_unit() {
+    let dir = TempDir::new().unwrap();
+    init_dir(&dir);
+
+    cmd_in(&dir)
+        .args(["config", "set", "units.system", "imperial"])
+        .assert()
+        .success();
+
+    cmd_in(&dir)
+        .args(["--date", "2026-02-16", "log", "weight", "160"])
+        .assert()
+        .success();
+    cmd_in(&dir)
+        .args(["--date", "2026-02-17", "log", "weight", "158"])
+        .assert()
+        .success();
+
+    cmd_in(&dir)
+        .args([
+            "--human", "trend", "weight", "--period", "daily", "--last", "2",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("lbs per daily"));
 }
 
 // ── batch simple format ──────────────────────────────────────────────────────

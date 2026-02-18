@@ -22,6 +22,27 @@ pub fn to_display(value: f64, metric_type: &str, units: &Units) -> (f64, String)
     }
 }
 
+/// Return the display unit string for a metric in the active unit system.
+pub fn display_unit(metric_type: &str, units: &Units) -> String {
+    to_display(0.0, metric_type, units).1
+}
+
+/// Convert a metric-space change/rate to display-space rate.
+pub fn to_display_rate(rate: f64, metric_type: &str, units: &Units) -> f64 {
+    if !units.is_imperial() {
+        return rate;
+    }
+
+    match metric_type {
+        "weight" => round1(rate * KG_TO_LBS),
+        "waist" => round1(rate / CM_TO_IN),
+        "height" => round1(rate / CM_TO_FT),
+        "water" => round1(rate / ML_TO_FLOZ),
+        "temperature" => round1(rate * 1.8),
+        _ => rate,
+    }
+}
+
 /// Convert a user-input value (in their configured unit system) to metric for storage.
 pub fn from_input(value: f64, metric_type: &str, units: &Units) -> f64 {
     if !units.is_imperial() {
