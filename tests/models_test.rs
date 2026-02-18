@@ -230,6 +230,33 @@ fn test_profile_optional_fields() {
     assert!(p.primary_exercise.is_none());
 }
 
+// ─── Units system tests ──────────────────────────────────────────────────────
+
+#[test]
+fn test_units_default_is_metric() {
+    let config = openvital::models::config::Config::default();
+    assert_eq!(config.units.system, "metric");
+    assert_eq!(config.units.weight, "kg");
+}
+
+#[test]
+fn test_units_imperial_constructor() {
+    let units = openvital::models::config::Units::imperial();
+    assert_eq!(units.system, "imperial");
+    assert_eq!(units.weight, "lbs");
+    assert_eq!(units.height, "ft");
+    assert_eq!(units.water, "fl_oz");
+    assert_eq!(units.temperature, "fahrenheit");
+}
+
+#[test]
+fn test_units_is_imperial() {
+    let metric = openvital::models::config::Units::default();
+    assert!(!metric.is_imperial());
+    let imperial = openvital::models::config::Units::imperial();
+    assert!(imperial.is_imperial());
+}
+
 // ─── Direction tests ──────────────────────────────────────────────────────────
 
 #[test]
