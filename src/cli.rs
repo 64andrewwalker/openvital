@@ -46,7 +46,7 @@ pub enum Commands {
 
         /// Metric value
         #[arg(required_unless_present = "batch")]
-        value: Option<f64>,
+        value: Option<String>,
 
         /// Free-text note
         #[arg(long)]
@@ -183,15 +183,24 @@ pub enum GoalAction {
     Set {
         /// Metric type (e.g. weight, cardio, water)
         r#type: String,
-        /// Target value
+        /// Target value (positional)
+        #[arg(value_name = "TARGET_POS")]
+        target_pos: Option<f64>,
+        /// Direction (positional): above, below, or equal
+        #[arg(value_name = "DIRECTION_POS")]
+        direction_pos: Option<String>,
+        /// Timeframe (positional): daily, weekly, or monthly
+        #[arg(value_name = "TIMEFRAME_POS")]
+        timeframe_pos: Option<String>,
+        /// Target value (named)
         #[arg(long)]
-        target: f64,
-        /// Direction: above, below, or equal
+        target: Option<f64>,
+        /// Direction: above, below, or equal (named)
         #[arg(long)]
-        direction: String,
-        /// Timeframe: daily, weekly, or monthly
+        direction: Option<String>,
+        /// Timeframe: daily, weekly, or monthly (named)
         #[arg(long)]
-        timeframe: String,
+        timeframe: Option<String>,
     },
     /// Check goal status
     Status {

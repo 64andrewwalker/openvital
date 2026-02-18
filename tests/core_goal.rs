@@ -228,10 +228,11 @@ fn test_goal_status_daily_below_uses_latest_value() {
 fn test_goal_status_weekly_sums_week_entries() {
     let (_dir, db) = common::setup_db();
 
+    // Use a cumulative metric (steps) so weekly aggregation sums entries
     goal::set_goal(
         &db,
-        "cardio".into(),
-        150.0,
+        "steps".into(),
+        10000.0,
         Direction::Above,
         Timeframe::Weekly,
     )
@@ -246,18 +247,18 @@ fn test_goal_status_weekly_sums_week_entries() {
     let day1 = monday;
     let day2 = monday + chrono::Duration::days(1);
 
-    db.insert_metric(&common::make_metric("cardio", 60.0, day1))
+    db.insert_metric(&common::make_metric("steps", 5000.0, day1))
         .unwrap();
     if day2 <= today {
-        db.insert_metric(&common::make_metric("cardio", 45.0, day2))
+        db.insert_metric(&common::make_metric("steps", 4000.0, day2))
             .unwrap();
     }
 
     let statuses = goal::goal_status(&db, None).unwrap();
     let s = &statuses[0];
     assert!(s.current_value.is_some());
-    // At minimum 60 minutes logged
-    assert!(s.current_value.unwrap() >= 60.0);
+    // At minimum 5000 steps logged
+    assert!(s.current_value.unwrap() >= 5000.0);
 }
 
 #[test]
@@ -590,4 +591,78 @@ fn test_goal_status_daily_equal_picks_last_not_first() {
         !s.is_met,
         "Goal should not be met when latest value != target"
     );
+}
+
+// ── goal_status – snapshot vs cumulative aggregation ─────────────────────────
+
+#[test]
+fn test_daily_above_goal_snapshot_uses_last_value_not_sum() {
+    let (_dir, db) = common::setup_db();
+    let today = chrono::Local::now().date_naive();
+
+    // Log sleep twice: 7.5 + 7.5 = 15 if summed, but should use last (7.5)
+    let m1 = common::make_metric("sleep", 7.5, today);
+    db.insert_metric(&m1).unwrap();
+    let m2 = common::make_metric("sleep", 7.5, today);
+    db.insert_metric(&m2).unwrap();
+
+    goal::set_goal(&db, "sleep".into(), 8.0, Direction::Above, Timeframe::Daily).unwrap();
+    let statuses = goal::goal_status(&db, Some("sleep")).unwrap();
+
+    assert_eq!(statuses.len(), 1);
+    // sleep is NOT cumulative, so current should be 7.5 (last), NOT 15 (sum)
+    assert_eq!(statuses[0].current_value, Some(7.5));
+    assert!(!statuses[0].is_met); // 7.5 < 8.0
+}
+
+#[test]
+fn test_daily_above_goal_cumulative_uses_sum() {
+    let (_dir, db) = common::setup_db();
+    let today = chrono::Local::now().date_naive();
+
+    // Log water twice: 500 + 800 = 1300
+    let m1 = common::make_metric("water", 500.0, today);
+    db.insert_metric(&m1).unwrap();
+    let m2 = common::make_metric("water", 800.0, today);
+    db.insert_metric(&m2).unwrap();
+
+    goal::set_goal(
+        &db,
+        "water".into(),
+        2000.0,
+        Direction::Above,
+        Timeframe::Daily,
+    )
+    .unwrap();
+    let statuses = goal::goal_status(&db, Some("water")).unwrap();
+
+    assert_eq!(statuses.len(), 1);
+    assert_eq!(statuses[0].current_value, Some(1300.0)); // summed
+    assert!(!statuses[0].is_met); // 1300 < 2000
+}
+
+#[test]
+fn test_weekly_goal_snapshot_uses_latest_value() {
+    let (_dir, db) = common::setup_db();
+    let today = chrono::Local::now().date_naive();
+    let yesterday = today - chrono::Duration::days(1);
+
+    let m1 = common::make_metric("weight", 73.0, yesterday);
+    db.insert_metric(&m1).unwrap();
+    let m2 = common::make_metric("weight", 72.5, today);
+    db.insert_metric(&m2).unwrap();
+
+    goal::set_goal(
+        &db,
+        "weight".into(),
+        70.0,
+        Direction::Below,
+        Timeframe::Weekly,
+    )
+    .unwrap();
+    let statuses = goal::goal_status(&db, Some("weight")).unwrap();
+
+    assert_eq!(statuses.len(), 1);
+    // For snapshot metrics weekly, use the latest value (72.5), not sum (145.5)
+    assert_eq!(statuses[0].current_value, Some(72.5));
 }

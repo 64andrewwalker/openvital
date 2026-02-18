@@ -28,7 +28,20 @@ pub fn format_status(s: &StatusData) -> String {
     if s.today.logged.is_empty() {
         out.push_str("No entries logged today.");
     } else {
-        out.push_str(&format!("Logged today: {}", s.today.logged.join(", ")));
+        // Deduplicate: count occurrences, preserve insertion order
+        let mut counts: Vec<(&str, usize)> = Vec::new();
+        for t in &s.today.logged {
+            if let Some(entry) = counts.iter_mut().find(|(name, _)| *name == t.as_str()) {
+                entry.1 += 1;
+            } else {
+                counts.push((t.as_str(), 1));
+            }
+        }
+        let parts: Vec<String> = counts
+            .iter()
+            .map(|(name, count)| format!("{}({})", name, count))
+            .collect();
+        out.push_str(&format!("Logged today: {}", parts.join(", ")));
     }
     if !s.today.pain_alerts.is_empty() {
         out.push_str(&format!(

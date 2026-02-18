@@ -66,3 +66,21 @@ pub fn log_batch(db: &Database, config: &Config, batch_json: &str) -> Result<Vec
 
     Ok(results)
 }
+
+/// Convert simple batch format ("weight:72.5,sleep:7.5") to JSON array string.
+pub fn parse_simple_batch(input: &str) -> Result<String> {
+    let entries: Vec<serde_json::Value> = input
+        .split(',')
+        .map(|pair| {
+            let parts: Vec<&str> = pair.trim().splitn(2, ':').collect();
+            if parts.len() != 2 {
+                anyhow::bail!("invalid batch entry: '{}' (expected type:value)", pair);
+            }
+            let value: f64 = parts[1]
+                .parse()
+                .map_err(|_| anyhow::anyhow!("invalid value in '{}'", pair))?;
+            Ok(serde_json::json!({"type": parts[0].trim(), "value": value}))
+        })
+        .collect::<Result<Vec<_>>>()?;
+    Ok(serde_json::to_string(&entries)?)
+}

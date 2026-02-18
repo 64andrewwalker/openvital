@@ -498,3 +498,50 @@ fn test_compute_uses_latest_weight_for_bmi() {
         "BMI should be based on latest weight (75 kg), got {bmi}"
     );
 }
+
+#[test]
+fn test_status_human_deduplicates_logged_today() {
+    use openvital::core::status::{ConsecutivePainAlert, ProfileStatus, Streaks, TodayStatus};
+
+    let status = openvital::core::status::StatusData {
+        date: chrono::NaiveDate::from_ymd_opt(2026, 2, 18).unwrap(),
+        profile: ProfileStatus {
+            height_cm: None,
+            latest_weight_kg: None,
+            bmi: None,
+            bmi_category: None,
+        },
+        today: TodayStatus {
+            logged: vec![
+                "water".into(),
+                "water".into(),
+                "water".into(),
+                "weight".into(),
+                "weight".into(),
+                "sleep".into(),
+            ],
+            pain_alerts: vec![],
+        },
+        streaks: Streaks { logging_days: 1 },
+        consecutive_pain_alerts: vec![],
+    };
+
+    let output = openvital::output::human::format_status(&status);
+    assert!(
+        output.contains("water(3)"),
+        "expected water(3), got: {}",
+        output
+    );
+    assert!(
+        output.contains("weight(2)"),
+        "expected weight(2), got: {}",
+        output
+    );
+    assert!(
+        output.contains("sleep(1)"),
+        "expected sleep(1), got: {}",
+        output
+    );
+    // Should NOT contain the raw comma-separated duplicate list
+    assert!(!output.contains("water, water, water"));
+}

@@ -182,27 +182,24 @@ fn test_show_by_type_empty_when_no_entries() {
 // ── show – last N limit ───────────────────────────────────────────────────────
 
 #[test]
-fn test_show_by_type_default_last_is_one() {
+fn test_show_by_type_default_last_is_ten() {
     let (_dir, db) = common::setup_db();
     let config = default_config();
 
-    for (d, v) in [
-        (NaiveDate::from_ymd_opt(2026, 2, 1).unwrap(), 83.0),
-        (NaiveDate::from_ymd_opt(2026, 2, 5).unwrap(), 82.5),
-        (NaiveDate::from_ymd_opt(2026, 2, 10).unwrap(), 82.0),
-    ] {
-        db.insert_metric(&common::make_metric("weight", v, d))
+    let base_date = NaiveDate::from_ymd_opt(2026, 1, 1).unwrap();
+    // Insert 15 entries
+    for i in 0..15 {
+        let date = base_date + chrono::Duration::days(i);
+        db.insert_metric(&common::make_metric("weight", 70.0 + i as f64 * 0.1, date))
             .unwrap();
     }
 
-    // No `last` param → defaults to 1
+    // No `last` param → defaults to 10
     let result = show(&db, &config, Some("weight"), None, None).unwrap();
 
     match result {
         ShowResult::ByType { entries, .. } => {
-            assert_eq!(entries.len(), 1);
-            // query_by_type returns DESC, so most-recent first
-            assert!((entries[0].value - 82.0).abs() < f64::EPSILON);
+            assert_eq!(entries.len(), 10);
         }
         ShowResult::ByDate { .. } => panic!("expected ByType"),
     }

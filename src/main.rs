@@ -1,6 +1,7 @@
 mod cli;
 mod cmd;
 
+use anyhow::anyhow;
 use clap::Parser;
 use cli::{Cli, Commands, ConfigAction, GoalAction};
 use std::process;
@@ -19,10 +20,10 @@ fn main() {
             batch,
         } => {
             if let Some(batch_json) = batch {
-                cmd::log::run_batch(&batch_json)
+                cmd::log::run_batch(&batch_json, cli.human)
             } else {
                 let t = r#type.as_deref().expect("type is required");
-                let v = value.expect("value is required");
+                let v = value.as_deref().expect("value is required");
                 cmd::log::run(
                     t,
                     v,
@@ -57,10 +58,26 @@ fn main() {
         Commands::Goal { action } => match action {
             GoalAction::Set {
                 r#type,
+                target_pos,
+                direction_pos,
+                timeframe_pos,
                 target,
                 direction,
                 timeframe,
-            } => cmd::goal::run_set(&r#type, target, &direction, &timeframe, cli.human),
+            } => match (
+                target.or(target_pos),
+                direction.or(direction_pos),
+                timeframe.or(timeframe_pos),
+            ) {
+                (Some(t), Some(d), Some(tf)) => cmd::goal::run_set(&r#type, t, &d, &tf, cli.human),
+                (None, _, _) => Err(anyhow!("target is required (use positional or --target)")),
+                (_, None, _) => Err(anyhow!(
+                    "direction is required (use positional or --direction)"
+                )),
+                (_, _, None) => Err(anyhow!(
+                    "timeframe is required (use positional or --timeframe)"
+                )),
+            },
             GoalAction::Status { r#type } => cmd::goal::run_status(r#type.as_deref(), cli.human),
             GoalAction::Remove { goal_id } => cmd::goal::run_remove(&goal_id, cli.human),
         },
