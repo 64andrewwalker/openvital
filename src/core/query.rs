@@ -38,7 +38,7 @@ pub fn show(
 
     let metric_type = metric_type.unwrap();
     let resolved = config.resolve_alias(metric_type);
-    let entries = db.query_by_type(&resolved, Some(last.unwrap_or(1)))?;
+    let entries = db.query_by_type(&resolved, Some(last.unwrap_or(10)))?;
     Ok(ShowResult::ByType {
         metric_type: resolved,
         entries,
