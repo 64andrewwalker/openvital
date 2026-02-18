@@ -10,7 +10,7 @@ fn main() {
     let cli = Cli::parse();
 
     let result = match cli.command {
-        Commands::Init { skip } => cmd::init::run(skip),
+        Commands::Init { skip, units } => cmd::init::run(skip, units.as_deref()),
         Commands::Log {
             r#type,
             value,
