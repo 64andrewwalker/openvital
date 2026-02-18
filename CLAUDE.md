@@ -124,4 +124,4 @@ Test organization:
 
 ## Spec Reference
 
-`openvital-spec.md` contains the full product specification. All Phase 1-3 features are implemented.
+`docs/openvital-spec.md` contains the full product specification. All Phase 1-3 features are implemented.

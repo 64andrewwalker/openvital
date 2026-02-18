@@ -1,34 +1,12 @@
-use chrono::{NaiveDate, NaiveTime, TimeZone, Utc};
+mod common;
+
+use chrono::NaiveDate;
 use openvital::core::report;
-use openvital::db::Database;
-use openvital::models::metric::Metric;
-use tempfile::TempDir;
-
-fn setup_db() -> (TempDir, Database) {
-    let dir = TempDir::new().unwrap();
-    let db_path = dir.path().join("test.db");
-    let db = Database::open(&db_path).unwrap();
-    (dir, db)
-}
-
-fn make_metric(metric_type: &str, value: f64, date: NaiveDate) -> Metric {
-    let dt = date.and_time(NaiveTime::from_hms_opt(12, 0, 0).unwrap());
-    let ts = Utc.from_utc_datetime(&dt);
-    let mut m = Metric::new(metric_type.to_string(), value);
-    m.timestamp = ts;
-    m
-}
 
 /// Scenario: Generate a weekly report with multiple metric types
-///   Given weight entries on 2026-01-05..2026-01-10
-///   And water entries on 2026-01-06..2026-01-09
-///   When I generate a report from 2026-01-05 to 2026-01-11
-///   Then the report includes summaries for both weight and water
-///   And each metric has count, avg, min, max
 #[test]
 fn test_report_weekly_multiple_types() {
-    let (_dir, db) = setup_db();
-    // Weight entries
+    let (_dir, db) = common::setup_db();
     for (day, val) in [
         (5, 85.0),
         (6, 84.8),
@@ -37,16 +15,15 @@ fn test_report_weekly_multiple_types() {
         (9, 84.3),
         (10, 84.0),
     ] {
-        let m = make_metric(
+        let m = common::make_metric(
             "weight",
             val,
             NaiveDate::from_ymd_opt(2026, 1, day).unwrap(),
         );
         db.insert_metric(&m).unwrap();
     }
-    // Water entries
     for (day, val) in [(6, 2000.0), (7, 2500.0), (8, 1800.0), (9, 2200.0)] {
-        let m = make_metric("water", val, NaiveDate::from_ymd_opt(2026, 1, day).unwrap());
+        let m = common::make_metric("water", val, NaiveDate::from_ymd_opt(2026, 1, day).unwrap());
         db.insert_metric(&m).unwrap();
     }
 
@@ -77,12 +54,9 @@ fn test_report_weekly_multiple_types() {
 }
 
 /// Scenario: Empty report for date range with no data
-///   Given an empty database
-///   When I generate a report for any date range
-///   Then the report has zero metrics
 #[test]
 fn test_report_empty_range() {
-    let (_dir, db) = setup_db();
+    let (_dir, db) = common::setup_db();
     let from = NaiveDate::from_ymd_opt(2026, 3, 1).unwrap();
     let to = NaiveDate::from_ymd_opt(2026, 3, 31).unwrap();
     let result = report::generate(&db, from, to).unwrap();
@@ -91,21 +65,17 @@ fn test_report_empty_range() {
 }
 
 /// Scenario: Report includes logging day count
-///   Given entries on 3 distinct days
-///   When I generate a report for that range
-///   Then days_with_entries is 3
 #[test]
 fn test_report_counts_distinct_days() {
-    let (_dir, db) = setup_db();
-    // 3 distinct days, some with multiple entries
-    let m1 = make_metric("weight", 85.0, NaiveDate::from_ymd_opt(2026, 2, 1).unwrap());
-    let m2 = make_metric(
+    let (_dir, db) = common::setup_db();
+    let m1 = common::make_metric("weight", 85.0, NaiveDate::from_ymd_opt(2026, 2, 1).unwrap());
+    let m2 = common::make_metric(
         "water",
         2000.0,
         NaiveDate::from_ymd_opt(2026, 2, 1).unwrap(),
     );
-    let m3 = make_metric("weight", 84.5, NaiveDate::from_ymd_opt(2026, 2, 3).unwrap());
-    let m4 = make_metric("cardio", 30.0, NaiveDate::from_ymd_opt(2026, 2, 5).unwrap());
+    let m3 = common::make_metric("weight", 84.5, NaiveDate::from_ymd_opt(2026, 2, 3).unwrap());
+    let m4 = common::make_metric("cardio", 30.0, NaiveDate::from_ymd_opt(2026, 2, 5).unwrap());
     db.insert_metric(&m1).unwrap();
     db.insert_metric(&m2).unwrap();
     db.insert_metric(&m3).unwrap();
