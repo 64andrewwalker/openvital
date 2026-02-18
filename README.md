@@ -130,6 +130,14 @@ cargo fmt --all -- --check     # Check formatting
 cargo clippy -- -D warnings    # Lint
 ```
 
+Enable local pre-commit checks:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+The hook is a local convenience guard. Enforcement happens in GitHub via required CI and branch protection.
+
 CI runs on Linux, macOS, and Windows via GitHub Actions.
 
 ## License

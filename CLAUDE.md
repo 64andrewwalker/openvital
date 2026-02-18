@@ -16,6 +16,8 @@ cargo clippy -- -D warnings        # Lint (warnings = errors in CI)
 
 CI enforces: `check`, `fmt --check`, `clippy -D warnings`, and `test` on Linux/macOS/Windows.
 
+Pre-commit hook runs fmt + clippy + test automatically. Setup: `git config core.hooksPath .githooks`
+
 ## Architecture
 
 4-layer design: **CLI → Command → Core → DB**
@@ -121,6 +123,11 @@ Test organization:
 - `FromStr` trait for enums parsed from CLI strings (Direction, Timeframe, TrendPeriod)
 - New commands: add variant to `Commands` enum in `cli.rs`, handler in `cmd/`, logic in `core/`
 - Release via [Conventional Commits](https://www.conventionalcommits.org/) → release-please automates versioning
+- **Never push directly to master** — always create a feature branch and open a PR. CI must pass before merging.
+
+## Commit Format
+
+`type(scope): description` — e.g., `feat(trend): add moving average support`
 
 ## Spec Reference
 

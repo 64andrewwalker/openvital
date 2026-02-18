@@ -17,3 +17,6 @@ Thumbs.db
 # but guard against accidental copies
 *.db
 *.db-journal
+
+# Coverage artifacts
+tarpaulin-report.json

@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+set -e
+
+echo "pre-commit: formatting..."
+cargo fmt --all -- --check
+
+echo "pre-commit: linting..."
+cargo clippy -- -D warnings
+
+echo "pre-commit: testing..."
+cargo test
+
+echo "pre-commit: all checks passed"

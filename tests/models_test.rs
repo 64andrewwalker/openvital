@@ -5,7 +5,46 @@ use openvital::models::config::{Alerts, Config, Profile, Units};
 use openvital::models::goal::{Direction, Goal, Timeframe};
 use openvital::models::metric::{Category, Metric, default_unit};
 use std::collections::HashMap;
+use std::ffi::OsString;
+use std::sync::{LazyLock, Mutex};
 use tempfile::TempDir;
+
+static CONFIG_ENV_LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
+
+struct OpenVitalHomeGuard {
+    previous: Option<OsString>,
+}
+
+impl OpenVitalHomeGuard {
+    fn set(path: &std::path::Path) -> Self {
+        let previous = std::env::var_os("OPENVITAL_HOME");
+        // SAFETY: tests that touch OPENVITAL_HOME are serialized by CONFIG_ENV_LOCK.
+        unsafe { std::env::set_var("OPENVITAL_HOME", path) };
+        Self { previous }
+    }
+}
+
+impl Drop for OpenVitalHomeGuard {
+    fn drop(&mut self) {
+        match &self.previous {
+            Some(value) => {
+                // SAFETY: tests that touch OPENVITAL_HOME are serialized by CONFIG_ENV_LOCK.
+                unsafe { std::env::set_var("OPENVITAL_HOME", value) };
+            }
+            None => {
+                // SAFETY: tests that touch OPENVITAL_HOME are serialized by CONFIG_ENV_LOCK.
+                unsafe { std::env::remove_var("OPENVITAL_HOME") };
+            }
+        }
+    }
+}
+
+fn with_temp_openvital_home<T>(f: impl FnOnce() -> T) -> T {
+    let _lock = CONFIG_ENV_LOCK.lock().unwrap();
+    let dir = TempDir::new().unwrap();
+    let _home = OpenVitalHomeGuard::set(dir.path());
+    f()
+}
 
 // ─── Config tests ────────────────────────────────────────────────────────────
 
@@ -95,6 +134,7 @@ fn test_resolve_alias_unknown_passthrough() {
 /// Config::path() ends with ".openvital/config.toml".
 #[test]
 fn test_config_path_suffix() {
+    let _lock = CONFIG_ENV_LOCK.lock().unwrap();
     let path = Config::path();
     assert!(
         path.to_string_lossy().contains(".openvital"),
@@ -106,6 +146,7 @@ fn test_config_path_suffix() {
 /// Config::db_path() ends with ".openvital/data.db".
 #[test]
 fn test_db_path_suffix() {
+    let _lock = CONFIG_ENV_LOCK.lock().unwrap();
     let path = Config::db_path();
     assert!(path.ends_with("data.db"));
     assert!(
@@ -117,6 +158,7 @@ fn test_db_path_suffix() {
 /// data_dir() is consistent between calls.
 #[test]
 fn test_data_dir_stable() {
+    let _lock = CONFIG_ENV_LOCK.lock().unwrap();
     let d1 = Config::data_dir();
     let d2 = Config::data_dir();
     assert_eq!(d1, d2);
@@ -599,81 +641,48 @@ fn test_metric_clone() {
 // ─── Config::load() / Config::save() direct coverage ─────────────────────────
 
 /// Config::load() returns defaults when the config file does not exist.
-/// This exercises the `else` branch of load() (lines 68-70 in config.rs).
+/// This exercises the `else` branch of load().
 #[test]
 fn test_config_load_returns_default_when_no_file() {
-    // Use a path that definitely does not exist in a temp dir
-    let dir = TempDir::new().unwrap();
-    let nonexistent = dir.path().join("no_such_config.toml");
-    // Confirm file does not exist
-    assert!(!nonexistent.exists());
-    // Parse default TOML directly to simulate load()'s else branch
-    let cfg: Config = toml::from_str("").expect("empty TOML should parse to defaults");
-    assert_eq!(cfg.units.weight, "kg");
-    assert_eq!(cfg.alerts.pain_threshold, 5);
-    assert!(cfg.aliases.is_empty());
+    with_temp_openvital_home(|| {
+        let path = Config::path();
+        assert!(!path.exists(), "temp config should not exist before load");
+
+        let cfg = Config::load().expect("Config::load() should return defaults");
+        assert_eq!(cfg.units.weight, "kg");
+        assert_eq!(cfg.alerts.pain_threshold, 5);
+        assert!(cfg.aliases.is_empty());
+    });
 }
 
-/// Config::load() covers the file-exists branch: write valid TOML, then read_to_string + from_str.
-/// This mirrors exactly what load() does internally.
+/// Config::load() covers the file-exists branch with an isolated OPENVITAL_HOME.
 #[test]
 fn test_config_load_from_existing_file_branch() {
-    let dir = TempDir::new().unwrap();
-    let config_path = dir.path().join("config.toml");
+    with_temp_openvital_home(|| {
+        let mut cfg = Config::default();
+        cfg.profile.height_cm = Some(168.0);
+        cfg.units.weight = "lbs".to_string();
+        cfg.save().expect("Config::save() should succeed");
 
-    let mut cfg = Config::default();
-    cfg.profile.height_cm = Some(168.0);
-    cfg.units.weight = "lbs".to_string();
-
-    // Write the file the same way save() does (minus create_dir_all and fixed path)
-    let contents = toml::to_string_pretty(&cfg).expect("serialise");
-    std::fs::write(&config_path, &contents).unwrap();
-
-    // Now exercise the same code path as load()'s `if path.exists()` branch
-    assert!(config_path.exists());
-    let read_back = std::fs::read_to_string(&config_path).unwrap();
-    let loaded: Config = toml::from_str(&read_back).expect("deserialise");
-
-    assert_eq!(loaded.profile.height_cm, Some(168.0));
-    assert_eq!(loaded.units.weight, "lbs");
+        let loaded = Config::load().expect("Config::load() should read saved file");
+        assert_eq!(loaded.profile.height_cm, Some(168.0));
+        assert_eq!(loaded.units.weight, "lbs");
+    });
 }
 
-/// Config::save() exercises create_dir_all + to_string_pretty + fs::write.
-/// We call it with a freshly-constructed Config on the real ~/.openvital path to
-/// cover those lines, then immediately reload with Config::load() to cover the
-/// file-exists branch of load() as well.
+/// Config::save() and Config::load() round-trip end-to-end in an isolated home.
 #[test]
-fn test_config_save_and_load_real_path() {
-    // This test intentionally writes to ~/.openvital/config.toml (the real path)
-    // so that Config::save() and Config::load() are executed end-to-end.
-    // We read whatever is currently there (if anything), save our test config,
-    // verify load() round-trips it, then restore the original content.
-    let config_path = Config::path();
-    let original = if config_path.exists() {
-        Some(std::fs::read_to_string(&config_path).unwrap())
-    } else {
-        None
-    };
+fn test_config_save_and_load_with_temp_openvital_home() {
+    with_temp_openvital_home(|| {
+        let mut cfg = Config::default();
+        cfg.profile.birth_year = Some(1992);
+        cfg.units.height = "in".to_string();
+        cfg.save().expect("Config::save() should succeed");
 
-    let mut cfg = Config::default();
-    cfg.profile.birth_year = Some(1992);
-    cfg.units.height = "in".to_string();
-
-    // Exercise Config::save() — covers lines 74-82 in config.rs
-    cfg.save().expect("Config::save() should succeed");
-
-    // Exercise Config::load() with the file present — covers lines 65-67
-    let loaded = Config::load().expect("Config::load() should succeed after save");
-    assert_eq!(loaded.profile.birth_year, Some(1992));
-    assert_eq!(loaded.units.height, "in");
-
-    // Restore original config (or remove the file we created)
-    match original {
-        Some(content) => std::fs::write(&config_path, content).unwrap(),
-        None => {
-            let _ = std::fs::remove_file(&config_path);
-        }
-    }
+        let loaded = Config::load().expect("Config::load() should succeed after save");
+        assert_eq!(loaded.profile.birth_year, Some(1992));
+        assert_eq!(loaded.units.height, "in");
+    });
 }
 
 /// We test save/load by writing to a file, then reading back with toml directly,
