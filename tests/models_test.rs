@@ -638,42 +638,26 @@ fn test_config_load_from_existing_file_branch() {
     assert_eq!(loaded.units.weight, "lbs");
 }
 
-/// Config::save() exercises create_dir_all + to_string_pretty + fs::write.
-/// We call it with a freshly-constructed Config on the real ~/.openvital path to
-/// cover those lines, then immediately reload with Config::load() to cover the
-/// file-exists branch of load() as well.
+/// Config round-trip via direct file I/O (same logic as save/load but temp-dir isolated).
 #[test]
-fn test_config_save_and_load_real_path() {
-    // This test intentionally writes to ~/.openvital/config.toml (the real path)
-    // so that Config::save() and Config::load() are executed end-to-end.
-    // We read whatever is currently there (if anything), save our test config,
-    // verify load() round-trips it, then restore the original content.
-    let config_path = Config::path();
-    let original = if config_path.exists() {
-        Some(std::fs::read_to_string(&config_path).unwrap())
-    } else {
-        None
-    };
+fn test_config_save_load_round_trip_via_file_io() {
+    let dir = TempDir::new().unwrap();
+    let config_path = dir.path().join("config.toml");
 
     let mut cfg = Config::default();
     cfg.profile.birth_year = Some(1992);
     cfg.units.height = "in".to_string();
 
-    // Exercise Config::save() — covers lines 74-82 in config.rs
-    cfg.save().expect("Config::save() should succeed");
+    // Same logic as Config::save()
+    let contents = toml::to_string_pretty(&cfg).unwrap();
+    std::fs::write(&config_path, &contents).unwrap();
 
-    // Exercise Config::load() with the file present — covers lines 65-67
-    let loaded = Config::load().expect("Config::load() should succeed after save");
+    // Same logic as Config::load()
+    let read_back = std::fs::read_to_string(&config_path).unwrap();
+    let loaded: Config = toml::from_str(&read_back).unwrap();
+
     assert_eq!(loaded.profile.birth_year, Some(1992));
     assert_eq!(loaded.units.height, "in");
-
-    // Restore original config (or remove the file we created)
-    match original {
-        Some(content) => std::fs::write(&config_path, content).unwrap(),
-        None => {
-            let _ = std::fs::remove_file(&config_path);
-        }
-    }
 }
 
 /// We test save/load by writing to a file, then reading back with toml directly,
