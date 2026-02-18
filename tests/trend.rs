@@ -351,3 +351,30 @@ fn test_projection_clamped_upper_bound() {
         projected
     );
 }
+
+#[test]
+fn test_projection_with_negative_values_stays_bounded() {
+    let (_dir, db) = common::setup_db();
+
+    let d1 = NaiveDate::from_ymd_opt(2026, 1, 1).unwrap();
+    let d2 = NaiveDate::from_ymd_opt(2026, 1, 2).unwrap();
+    db.insert_metric(&common::make_metric("mood", -5.0, d1))
+        .unwrap();
+    db.insert_metric(&common::make_metric("mood", -4.0, d2))
+        .unwrap();
+
+    let result = trend::compute(&db, "mood", TrendPeriod::Daily, None).unwrap();
+    let projected = result.trend.projected_30d.unwrap();
+
+    // last_avg = -4.0, so clamp band should be [-6.0, -2.0]
+    assert!(
+        projected >= -6.0,
+        "projection {} should be >= -6.0",
+        projected
+    );
+    assert!(
+        projected <= -2.0,
+        "projection {} should be <= -2.0",
+        projected
+    );
+}
