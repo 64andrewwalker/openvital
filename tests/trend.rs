@@ -172,12 +172,10 @@ fn test_stable_trend_constant_values() {
 
     assert_eq!(result.trend.direction, "stable");
     assert!((result.trend.rate).abs() < 0.01);
-    // The projection formula is: (last_avg + slope * periods_in_30d * 10).round() / 10
-    // With slope ~0, projected = (60.0 + ~0).round() / 10 = 60.0 / 10 = 6.0
-    // This reflects the implementation's scaling design.
+    // With slope ~0, projected ≈ 60.0 (clamped to [30.0, 90.0])
     assert!(result.trend.projected_30d.is_some());
     let projected = result.trend.projected_30d.unwrap();
-    assert!((projected - 6.0).abs() < 0.2);
+    assert!((projected - 60.0).abs() < 0.2);
 }
 
 #[test]
@@ -198,16 +196,12 @@ fn test_increasing_trend_direction() {
 
     assert_eq!(result.trend.direction, "increasing");
     assert!(result.trend.rate > 0.0);
-    // projected_30d uses formula: (last_avg + slope * periods_in_30d * 10).round() / 10
     // With slope=5.0, periods_in_30d=30/7≈4.29, last_avg=65.0:
-    // projected = (65.0 + 5.0 * 4.29 * 10).round() / 10 ≈ (65 + 214.3) / 10 ≈ 27.9
-    // The implementation's scaling means projected_30d reflects a scaled value.
+    // raw_projected = 65.0 + 5.0 * 4.29 ≈ 86.4, clamped to [32.5, 97.5]
     assert!(result.trend.projected_30d.is_some());
     let projected = result.trend.projected_30d.unwrap();
-    // With a positive slope and weekly periods, projected > 0
-    assert!(projected > 0.0);
-    // The projection is scaled by the 10x factor, so verify it's in reasonable range
-    assert!(projected > 20.0 && projected < 300.0);
+    assert!(projected > 65.0, "projection should be above last avg");
+    assert!(projected <= 97.5, "projection should be clamped to 1.5x");
 }
 
 #[test]
@@ -305,4 +299,47 @@ fn test_correlate_last_days_cutoff_filters_old_entries() {
         result_all.data_points > result_recent.data_points,
         "Without cutoff, more data_points should be included"
     );
+}
+
+#[test]
+fn test_projection_clamped_to_reasonable_range() {
+    let (_dir, db) = common::setup_db();
+
+    // Create data with steep downward trend: 80, 60 over 2 weeks
+    let w1_date = NaiveDate::from_ymd_opt(2026, 1, 6).unwrap();
+    let w2_date = NaiveDate::from_ymd_opt(2026, 1, 13).unwrap();
+
+    let m1 = common::make_metric("weight", 80.0, w1_date);
+    db.insert_metric(&m1).unwrap();
+    let m2 = common::make_metric("weight", 60.0, w2_date);
+    db.insert_metric(&m2).unwrap();
+
+    let result = trend::compute(&db, "weight", TrendPeriod::Weekly, None).unwrap();
+
+    let projected = result.trend.projected_30d.unwrap();
+    // Without clamp, projection would be 60 + (-20 * 4.3) ≈ -26 (absurd)
+    // With clamp, should be >= 60 * 0.5 = 30
+    assert!(projected >= 30.0, "projection {} should be >= 30.0", projected);
+    assert!(projected >= 0.0, "projection should never be negative");
+}
+
+#[test]
+fn test_projection_clamped_upper_bound() {
+    let (_dir, db) = common::setup_db();
+
+    // Create data with steep upward trend: 50, 100 over 2 weeks
+    let w1_date = NaiveDate::from_ymd_opt(2026, 1, 6).unwrap();
+    let w2_date = NaiveDate::from_ymd_opt(2026, 1, 13).unwrap();
+
+    let m1 = common::make_metric("steps", 50.0, w1_date);
+    db.insert_metric(&m1).unwrap();
+    let m2 = common::make_metric("steps", 100.0, w2_date);
+    db.insert_metric(&m2).unwrap();
+
+    let result = trend::compute(&db, "steps", TrendPeriod::Weekly, None).unwrap();
+
+    let projected = result.trend.projected_30d.unwrap();
+    // Without clamp, projection would be 100 + 50 * 4.3 = 315 (absurd)
+    // With clamp, should be <= 100 * 1.5 = 150
+    assert!(projected <= 150.0, "projection {} should be <= 150.0", projected);
 }

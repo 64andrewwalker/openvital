@@ -190,7 +190,11 @@ fn compute_trend(data: &[PeriodData], period: &TrendPeriod) -> TrendSummary {
         TrendPeriod::Monthly => 1.0,
     };
     let last_avg = ys.last().unwrap();
-    let projected = (last_avg + slope * periods_in_30d * 10.0).round() / 10.0;
+    let raw_projected = last_avg + slope * periods_in_30d;
+    // Clamp: never negative, never beyond ±50% of current value
+    let min_proj = (last_avg * 0.5).max(0.0);
+    let max_proj = last_avg * 1.5;
+    let projected = (raw_projected.clamp(min_proj, max_proj) * 10.0).round() / 10.0;
 
     TrendSummary {
         direction: direction.to_string(),
