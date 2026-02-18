@@ -107,6 +107,9 @@ impl Config {
     }
 
     pub fn data_dir() -> PathBuf {
+        if let Ok(home) = std::env::var("OPENVITAL_HOME") {
+            return PathBuf::from(home);
+        }
         dirs::home_dir()
             .expect("cannot resolve home directory")
             .join(".openvital")
