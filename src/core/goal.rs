@@ -148,7 +148,7 @@ fn format_progress(goal: &Goal, current: f64) -> String {
             }
         }
         Direction::Equal => {
-            if (current - goal.target_value).abs() < f64::EPSILON {
+            if (current - goal.target_value).abs() < 0.01 {
                 format!("at target ({})", current)
             } else {
                 format!("current: {}, target: {}", current, goal.target_value)

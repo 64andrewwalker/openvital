@@ -23,45 +23,8 @@ pub fn run(
 
     // Check for blood pressure compound value (e.g., "120/80")
     if (resolved_type == "blood_pressure" || resolved_type == "bp") && value_str.contains('/') {
-        let parts: Vec<&str> = value_str.split('/').collect();
-        if parts.len() != 2 {
-            anyhow::bail!("blood pressure format must be SYSTOLIC/DIASTOLIC (e.g., 120/80)");
-        }
-        let systolic: f64 = parts[0]
-            .parse()
-            .map_err(|_| anyhow::anyhow!("invalid systolic value"))?;
-        let diastolic: f64 = parts[1]
-            .parse()
-            .map_err(|_| anyhow::anyhow!("invalid diastolic value"))?;
-
-        // Convert from user units to metric for storage
-        let sys_metric = openvital::core::units::from_input(systolic, "bp_systolic", &config.units);
-        let dia_metric =
-            openvital::core::units::from_input(diastolic, "bp_diastolic", &config.units);
-
-        let m1 = openvital::core::logging::log_metric(
-            &db,
-            &config,
-            LogEntry {
-                metric_type: "bp_systolic",
-                value: sys_metric,
-                note,
-                tags,
-                source,
-                date,
-            },
-        )?;
-        let m2 = openvital::core::logging::log_metric(
-            &db,
-            &config,
-            LogEntry {
-                metric_type: "bp_diastolic",
-                value: dia_metric,
-                note,
-                tags,
-                source,
-                date,
-            },
+        let (m1, m2) = openvital::core::logging::log_blood_pressure(
+            &db, &config, value_str, note, tags, source, date,
         )?;
 
         if human_flag {
@@ -90,13 +53,12 @@ pub fn run(
         .parse()
         .map_err(|_| anyhow::anyhow!("invalid value: {}", value_str))?;
     // Convert from user units (e.g., imperial) to metric for storage
-    let resolved_type = config.resolve_alias(metric_type);
     let value = openvital::core::units::from_input(parsed, &resolved_type, &config.units);
     let m = openvital::core::logging::log_metric(
         &db,
         &config,
         LogEntry {
-            metric_type,
+            metric_type: &resolved_type,
             value,
             note,
             tags,

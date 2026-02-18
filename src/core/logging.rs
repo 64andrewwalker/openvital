@@ -37,6 +37,58 @@ pub fn log_metric(db: &Database, config: &Config, entry: LogEntry<'_>) -> Result
     Ok(m)
 }
 
+/// Log a blood pressure compound value (e.g., "120/80").
+/// Parses the value, converts units, and creates two metric entries (systolic + diastolic).
+pub fn log_blood_pressure(
+    db: &Database,
+    config: &Config,
+    value_str: &str,
+    note: Option<&str>,
+    tags: Option<&str>,
+    source: Option<&str>,
+    date: Option<NaiveDate>,
+) -> Result<(Metric, Metric)> {
+    let parts: Vec<&str> = value_str.split('/').collect();
+    if parts.len() != 2 {
+        anyhow::bail!("blood pressure format must be SYSTOLIC/DIASTOLIC (e.g., 120/80)");
+    }
+    let systolic: f64 = parts[0]
+        .parse()
+        .map_err(|_| anyhow::anyhow!("invalid systolic value"))?;
+    let diastolic: f64 = parts[1]
+        .parse()
+        .map_err(|_| anyhow::anyhow!("invalid diastolic value"))?;
+
+    let sys_metric = crate::core::units::from_input(systolic, "bp_systolic", &config.units);
+    let dia_metric = crate::core::units::from_input(diastolic, "bp_diastolic", &config.units);
+
+    let m1 = log_metric(
+        db,
+        config,
+        LogEntry {
+            metric_type: "bp_systolic",
+            value: sys_metric,
+            note,
+            tags,
+            source,
+            date,
+        },
+    )?;
+    let m2 = log_metric(
+        db,
+        config,
+        LogEntry {
+            metric_type: "bp_diastolic",
+            value: dia_metric,
+            note,
+            tags,
+            source,
+            date,
+        },
+    )?;
+    Ok((m1, m2))
+}
+
 /// Batch-log metrics from a JSON array string. Returns created Metrics.
 pub fn log_batch(db: &Database, config: &Config, batch_json: &str) -> Result<Vec<Metric>> {
     let entries: Vec<serde_json::Value> = serde_json::from_str(batch_json)?;

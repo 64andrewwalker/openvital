@@ -33,6 +33,60 @@ pub fn format_metric_with_units(m: &Metric, user_units: &Units) -> String {
     line
 }
 
+/// Format goal progress for human-readable output with unit conversion.
+pub fn format_progress_human(status: &crate::core::goal::GoalStatus, units: &Units) -> String {
+    let Some(current_raw) = status.current_value else {
+        return "no data".to_string();
+    };
+
+    let (current, unit) = crate::core::units::to_display(current_raw, &status.metric_type, units);
+    let (target, _) =
+        crate::core::units::to_display(status.target_value, &status.metric_type, units);
+
+    match status.direction.as_str() {
+        "below" => {
+            if current_raw <= status.target_value {
+                format!("at target ({:.1} <= {:.1} {})", current, target, unit)
+            } else {
+                format!(
+                    "{:.1} to go ({:.1} -> {:.1} {})",
+                    current - target,
+                    current,
+                    target,
+                    unit
+                )
+            }
+        }
+        "above" => {
+            if current_raw >= status.target_value {
+                format!("target met ({:.1} >= {:.1} {})", current, target, unit)
+            } else {
+                format!(
+                    "{:.1} remaining ({:.1}/{:.1} {})",
+                    target - current,
+                    current,
+                    target,
+                    unit
+                )
+            }
+        }
+        "equal" => {
+            if (current_raw - status.target_value).abs() < 0.01 {
+                format!("at target ({:.1} {})", current, unit)
+            } else {
+                format!(
+                    "current: {:.1} {}, target: {:.1} {}",
+                    current, unit, target, unit
+                )
+            }
+        }
+        _ => status
+            .progress
+            .clone()
+            .unwrap_or_else(|| "no data".to_string()),
+    }
+}
+
 /// Pretty-print the status overview.
 pub fn format_status(s: &StatusData, user_units: &Units) -> String {
     let mut out = format!("=== OpenVital Status — {} ===\n\n", s.date);
