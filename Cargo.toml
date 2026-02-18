@@ -1,0 +1,22 @@
+[package]
+name = "openvital"
+version = "0.1.0"
+edition = "2024"
+description = "Agent-native health management CLI"
+license = "MIT"
+repository = "https://github.com/punkpeye/openvital"
+keywords = ["health", "cli", "fitness", "tracking"]
+categories = ["command-line-utilities"]
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+rusqlite = { version = "0.32", features = ["bundled"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1", features = ["v4"] }
+toml = "0.8"
+colored = "2"
+comfy-table = "7"
+dirs = "6"
+anyhow = "1"

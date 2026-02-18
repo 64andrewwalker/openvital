@@ -1,0 +1,19 @@
+# Build
+/target
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Runtime user data (never commit user health data)
+# The actual db lives at ~/.openvital/data.db, not in the repo,
+# but guard against accidental copies
+*.db
+*.db-journal
