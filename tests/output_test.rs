@@ -6,7 +6,7 @@ use openvital::core::status::{
 };
 use openvital::models::Metric;
 use openvital::models::config::Units;
-use openvital::output::human::{format_metric, format_status};
+use openvital::output::human::{format_metric, format_progress_human, format_status};
 use openvital::output::{error, success};
 use serde_json::json;
 
@@ -469,4 +469,54 @@ fn test_format_status_full() {
     assert!(out.contains("Logging streak"));
     assert!(out.contains("10"));
     assert!(out.contains("!!"));
+}
+
+// ─── format_progress_human tests ────────────────────────────────────────────
+
+#[test]
+fn test_format_progress_human_below_at_target() {
+    let status = openvital::core::goal::GoalStatus {
+        id: "test".to_string(),
+        metric_type: "weight".to_string(),
+        target_value: 75.0,
+        direction: "below".to_string(),
+        timeframe: "monthly".to_string(),
+        current_value: Some(74.0),
+        is_met: true,
+        progress: None,
+    };
+    let result = format_progress_human(&status, &Units::default());
+    assert!(result.contains("at target"));
+}
+
+#[test]
+fn test_format_progress_human_above_remaining() {
+    let status = openvital::core::goal::GoalStatus {
+        id: "test".to_string(),
+        metric_type: "water".to_string(),
+        target_value: 2000.0,
+        direction: "above".to_string(),
+        timeframe: "daily".to_string(),
+        current_value: Some(1500.0),
+        is_met: false,
+        progress: None,
+    };
+    let result = format_progress_human(&status, &Units::default());
+    assert!(result.contains("remaining"));
+}
+
+#[test]
+fn test_format_progress_human_no_data() {
+    let status = openvital::core::goal::GoalStatus {
+        id: "test".to_string(),
+        metric_type: "weight".to_string(),
+        target_value: 75.0,
+        direction: "below".to_string(),
+        timeframe: "monthly".to_string(),
+        current_value: None,
+        is_met: false,
+        progress: None,
+    };
+    let result = format_progress_human(&status, &Units::default());
+    assert_eq!(result, "no data");
 }

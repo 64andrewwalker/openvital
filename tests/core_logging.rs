@@ -1,7 +1,7 @@
 mod common;
 
 use chrono::{NaiveDate, Timelike};
-use openvital::core::logging::{LogEntry, log_batch, log_metric};
+use openvital::core::logging::{LogEntry, log_batch, log_blood_pressure, log_metric};
 use openvital::models::config::Config;
 
 fn default_config() -> Config {
@@ -316,4 +316,42 @@ fn test_log_batch_empty_array_succeeds() {
 
     let results = log_batch(&db, &config, "[]").unwrap();
     assert!(results.is_empty());
+}
+
+// ── log_blood_pressure ──────────────────────────────────────────────────────
+
+#[test]
+fn test_log_blood_pressure_splits_into_systolic_diastolic() {
+    let (_dir, db) = common::setup_db();
+    let config = default_config();
+
+    let (m1, m2) = log_blood_pressure(&db, &config, "120/80", None, None, None, None).unwrap();
+    assert_eq!(m1.metric_type, "bp_systolic");
+    assert!((m1.value - 120.0).abs() < 0.1);
+    assert_eq!(m2.metric_type, "bp_diastolic");
+    assert!((m2.value - 80.0).abs() < 0.1);
+
+    // Both persisted
+    let sys = db.query_by_type("bp_systolic", Some(1)).unwrap();
+    let dia = db.query_by_type("bp_diastolic", Some(1)).unwrap();
+    assert_eq!(sys.len(), 1);
+    assert_eq!(dia.len(), 1);
+}
+
+#[test]
+fn test_log_blood_pressure_invalid_format_fails() {
+    let (_dir, db) = common::setup_db();
+    let config = default_config();
+
+    let result = log_blood_pressure(&db, &config, "120/80/60", None, None, None, None);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_log_blood_pressure_invalid_number_fails() {
+    let (_dir, db) = common::setup_db();
+    let config = default_config();
+
+    let result = log_blood_pressure(&db, &config, "abc/80", None, None, None, None);
+    assert!(result.is_err());
 }

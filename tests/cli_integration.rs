@@ -2418,3 +2418,34 @@ fn test_batch_simple_format_invalid_value() {
     let result = openvital::core::logging::parse_simple_batch("weight:abc");
     assert!(result.is_err());
 }
+
+/// config set height with imperial units should convert feet to cm before storing.
+#[test]
+fn test_config_set_height_imperial_converts_feet_to_cm() {
+    let dir = TempDir::new().unwrap();
+    init_dir(&dir);
+
+    // Switch to imperial
+    cmd_in(&dir)
+        .args(["config", "set", "units.system", "imperial"])
+        .assert()
+        .success();
+
+    // Set height to 5.83 feet
+    cmd_in(&dir)
+        .args(["config", "set", "height", "5.83"])
+        .assert()
+        .success();
+
+    // Read back config — height_cm should be ~177.7, not 5.83
+    let assert = cmd_in(&dir).args(["config", "show"]).assert().success();
+    let json = parse_json(&assert);
+    let height_cm = json["data"]["config"]["profile"]["height_cm"]
+        .as_f64()
+        .expect("height_cm should be a number");
+    assert!(
+        (height_cm - 177.7).abs() < 1.0,
+        "expected ~177.7 cm, got {} (imperial feet were not converted)",
+        height_cm
+    );
+}

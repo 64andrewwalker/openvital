@@ -55,7 +55,7 @@ pub fn run_status(metric_type: Option<&str>, human: bool) -> Result<()> {
                     &s.metric_type,
                     &config.units,
                 );
-                let progress = format_progress_human(s, &config.units);
+                let progress = openvital::output::human::format_progress_human(s, &config.units);
                 println!(
                     "[{}] {} {} {:.1} {} ({}) — {}",
                     met,
@@ -73,63 +73,6 @@ pub fn run_status(metric_type: Option<&str>, human: bool) -> Result<()> {
         println!("{}", serde_json::to_string(&out)?);
     }
     Ok(())
-}
-
-fn format_progress_human(
-    status: &openvital::core::goal::GoalStatus,
-    units: &openvital::models::config::Units,
-) -> String {
-    let Some(current_raw) = status.current_value else {
-        return "no data".to_string();
-    };
-
-    let (current, unit) =
-        openvital::core::units::to_display(current_raw, &status.metric_type, units);
-    let (target, _) =
-        openvital::core::units::to_display(status.target_value, &status.metric_type, units);
-
-    match status.direction.as_str() {
-        "below" => {
-            if current_raw <= status.target_value {
-                format!("at target ({:.1} <= {:.1} {})", current, target, unit)
-            } else {
-                format!(
-                    "{:.1} to go ({:.1} -> {:.1} {})",
-                    current - target,
-                    current,
-                    target,
-                    unit
-                )
-            }
-        }
-        "above" => {
-            if current_raw >= status.target_value {
-                format!("target met ({:.1} >= {:.1} {})", current, target, unit)
-            } else {
-                format!(
-                    "{:.1} remaining ({:.1}/{:.1} {})",
-                    target - current,
-                    current,
-                    target,
-                    unit
-                )
-            }
-        }
-        "equal" => {
-            if (current_raw - status.target_value).abs() < f64::EPSILON {
-                format!("at target ({:.1} {})", current, unit)
-            } else {
-                format!(
-                    "current: {:.1} {}, target: {:.1} {}",
-                    current, unit, target, unit
-                )
-            }
-        }
-        _ => status
-            .progress
-            .clone()
-            .unwrap_or_else(|| "no data".to_string()),
-    }
 }
 
 pub fn run_remove(goal_id: &str, human: bool) -> Result<()> {

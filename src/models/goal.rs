@@ -97,7 +97,7 @@ impl Goal {
         match self.direction {
             Direction::Above => value >= self.target_value,
             Direction::Below => value <= self.target_value,
-            Direction::Equal => (value - self.target_value).abs() < f64::EPSILON,
+            Direction::Equal => (value - self.target_value).abs() < 0.01,
         }
     }
 }

@@ -396,18 +396,24 @@ fn test_goal_is_met_equal() {
         Timeframe::Daily,
     );
     assert!(g.is_met(4.0));
-    assert!(!g.is_met(3.999));
-    assert!(!g.is_met(4.001));
+    // Values within 0.01 tolerance are considered equal (for floating point safety)
+    assert!(g.is_met(4.005));
+    assert!(g.is_met(3.995));
+    // Values outside tolerance are not equal
+    assert!(!g.is_met(3.98));
+    assert!(!g.is_met(4.02));
 }
 
-/// is_met with equal uses f64::EPSILON tolerance (not an arbitrary margin).
+/// is_met with equal uses 0.01 tolerance for floating point safety.
 #[test]
-fn test_goal_is_met_equal_epsilon_boundary() {
+fn test_goal_is_met_equal_tolerance_boundary() {
     let g = Goal::new("pain".into(), 3.0, Direction::Equal, Timeframe::Daily);
-    // Exactly f64::EPSILON away should NOT be met
-    assert!(!g.is_met(3.0 + f64::EPSILON * 2.0));
-    // A value that rounds to exactly 3.0 in IEEE754 IS met
+    // Values beyond 0.01 tolerance should NOT be met
+    assert!(!g.is_met(3.02));
+    assert!(!g.is_met(2.98));
+    // A value within tolerance IS met
     assert!(g.is_met(3.0));
+    assert!(g.is_met(3.005));
 }
 
 /// Goal serialises and deserialises correctly via JSON.
@@ -776,4 +782,47 @@ fn test_config_save_and_reload_via_toml() {
     assert_eq!(loaded.profile.birth_year, Some(1985));
     assert_eq!(loaded.units.weight, "lbs");
     assert_eq!(loaded.aliases.get("wt").map(|s| s.as_str()), Some("weight"));
+}
+
+/// Goal::is_met for Direction::Equal should tolerate small floating point differences
+/// that arise from imperial unit round-trip conversions (e.g., lbs → kg → lbs).
+#[test]
+fn test_goal_is_met_equal_tolerates_float_rounding() {
+    // Simulate: user sets goal at 160 lbs → stored as 160/2.20462 = 72.57478...
+    let target = 160.0 / 2.20462;
+    let goal = Goal::new(
+        "weight".to_string(),
+        target,
+        Direction::Equal,
+        Timeframe::Daily,
+    );
+    // Simulate: user logs 160 lbs → stored via same conversion
+    let current = 160.0 / 2.20462;
+    assert!(
+        goal.is_met(current),
+        "equal goal should be met for identical conversions"
+    );
+
+    // Simulate slight float difference from different arithmetic paths
+    let slightly_off = target + 1e-10;
+    assert!(
+        goal.is_met(slightly_off),
+        "equal goal should tolerate tiny float differences (got diff={})",
+        (slightly_off - target).abs()
+    );
+}
+
+/// Partial [units] section (only system) should deserialize with defaults for other fields.
+#[test]
+fn test_units_partial_toml_deserializes_with_defaults() {
+    let toml_str = r#"
+[units]
+system = "imperial"
+"#;
+    let cfg: Config = toml::from_str(toml_str).unwrap();
+    assert_eq!(cfg.units.system, "imperial");
+    assert_eq!(cfg.units.weight, "kg");
+    assert_eq!(cfg.units.height, "cm");
+    assert_eq!(cfg.units.water, "ml");
+    assert_eq!(cfg.units.temperature, "celsius");
 }

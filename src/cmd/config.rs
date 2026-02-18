@@ -20,7 +20,11 @@ pub fn run_set(key: &str, value: &str) -> Result<()> {
     let mut config = Config::load()?;
 
     match key {
-        "height" => config.profile.height_cm = Some(value.parse()?),
+        "height" => {
+            let raw: f64 = value.parse()?;
+            let cm = openvital::core::units::from_input(raw, "height", &config.units);
+            config.profile.height_cm = Some(cm);
+        }
         "birth_year" => config.profile.birth_year = Some(value.parse()?),
         "gender" => config.profile.gender = Some(value.to_string()),
         "conditions" => {

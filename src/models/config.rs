@@ -28,14 +28,30 @@ pub struct Profile {
 pub struct Units {
     #[serde(default = "default_system")]
     pub system: String,
+    #[serde(default = "default_weight_unit")]
     pub weight: String,
+    #[serde(default = "default_height_unit")]
     pub height: String,
+    #[serde(default = "default_water_unit")]
     pub water: String,
+    #[serde(default = "default_temperature_unit")]
     pub temperature: String,
 }
 
 fn default_system() -> String {
     "metric".to_string()
+}
+fn default_weight_unit() -> String {
+    "kg".to_string()
+}
+fn default_height_unit() -> String {
+    "cm".to_string()
+}
+fn default_water_unit() -> String {
+    "ml".to_string()
+}
+fn default_temperature_unit() -> String {
+    "celsius".to_string()
 }
 
 impl Default for Units {
