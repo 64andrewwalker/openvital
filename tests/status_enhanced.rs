@@ -501,7 +501,7 @@ fn test_compute_uses_latest_weight_for_bmi() {
 
 #[test]
 fn test_status_human_deduplicates_logged_today() {
-    use openvital::core::status::{ConsecutivePainAlert, ProfileStatus, Streaks, TodayStatus};
+    use openvital::core::status::{ProfileStatus, Streaks, TodayStatus};
 
     let status = openvital::core::status::StatusData {
         date: chrono::NaiveDate::from_ymd_opt(2026, 2, 18).unwrap(),
@@ -526,7 +526,10 @@ fn test_status_human_deduplicates_logged_today() {
         consecutive_pain_alerts: vec![],
     };
 
-    let output = openvital::output::human::format_status(&status);
+    let output = openvital::output::human::format_status(
+        &status,
+        &openvital::models::config::Units::default(),
+    );
     assert!(
         output.contains("water(3)"),
         "expected water(3), got: {}",
