@@ -19,9 +19,10 @@ pub fn run(
 ) -> Result<()> {
     let config = Config::load()?;
     let db = Database::open(&Config::db_path())?;
+    let resolved_type = config.resolve_alias(metric_type);
 
     // Check for blood pressure compound value (e.g., "120/80")
-    if (metric_type == "blood_pressure" || metric_type == "bp") && value_str.contains('/') {
+    if (resolved_type == "blood_pressure" || resolved_type == "bp") && value_str.contains('/') {
         let parts: Vec<&str> = value_str.split('/').collect();
         if parts.len() != 2 {
             anyhow::bail!("blood pressure format must be SYSTOLIC/DIASTOLIC (e.g., 120/80)");

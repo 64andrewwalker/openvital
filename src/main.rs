@@ -1,6 +1,7 @@
 mod cli;
 mod cmd;
 
+use anyhow::anyhow;
 use clap::Parser;
 use cli::{Cli, Commands, ConfigAction, GoalAction};
 use std::process;
@@ -63,18 +64,20 @@ fn main() {
                 target,
                 direction,
                 timeframe,
-            } => {
-                let t = target
-                    .or(target_pos)
-                    .expect("target is required (use positional or --target)");
-                let d = direction
-                    .or(direction_pos)
-                    .expect("direction is required (use positional or --direction)");
-                let tf = timeframe
-                    .or(timeframe_pos)
-                    .expect("timeframe is required (use positional or --timeframe)");
-                cmd::goal::run_set(&r#type, t, &d, &tf, cli.human)
-            }
+            } => match (
+                target.or(target_pos),
+                direction.or(direction_pos),
+                timeframe.or(timeframe_pos),
+            ) {
+                (Some(t), Some(d), Some(tf)) => cmd::goal::run_set(&r#type, t, &d, &tf, cli.human),
+                (None, _, _) => Err(anyhow!("target is required (use positional or --target)")),
+                (_, None, _) => Err(anyhow!(
+                    "direction is required (use positional or --direction)"
+                )),
+                (_, _, None) => Err(anyhow!(
+                    "timeframe is required (use positional or --timeframe)"
+                )),
+            },
             GoalAction::Status { r#type } => cmd::goal::run_status(r#type.as_deref(), cli.human),
             GoalAction::Remove { goal_id } => cmd::goal::run_remove(&goal_id, cli.human),
         },

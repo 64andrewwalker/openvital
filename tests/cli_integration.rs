@@ -30,6 +30,12 @@ fn parse_json(output: &assert_cmd::assert::Assert) -> Value {
     serde_json::from_slice(&bytes).expect("stdout is not valid JSON")
 }
 
+/// Parse stderr JSON and return the root `Value`.
+fn parse_stderr_json(output: &assert_cmd::assert::Assert) -> Value {
+    let bytes = output.get_output().stderr.clone();
+    serde_json::from_slice(&bytes).expect("stderr is not valid JSON")
+}
+
 // ── init ─────────────────────────────────────────────────────────────────────
 
 #[test]
@@ -2013,6 +2019,27 @@ fn test_goal_set_named_args_still_works() {
         .stdout(predicate::str::contains("Goal set: water above 2000"));
 }
 
+#[test]
+fn test_goal_set_missing_required_value_returns_json_error_not_panic() {
+    let dir = TempDir::new().unwrap();
+    init_dir(&dir);
+
+    let assert = cmd_in(&dir)
+        .args(["goal", "set", "weight"])
+        .assert()
+        .failure();
+
+    let json = parse_stderr_json(&assert);
+    assert_eq!(json["status"], "error");
+    assert_eq!(json["error"]["code"], "general_error");
+    assert!(
+        json["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("target is required")
+    );
+}
+
 // ── blood pressure ───────────────────────────────────────────────────────────
 
 #[test]
@@ -2097,6 +2124,30 @@ fn test_log_blood_pressure_bp_alias_json_output() {
     assert_eq!(entries.len(), 2);
     assert_eq!(entries[0]["value"], 130.0);
     assert_eq!(entries[1]["value"], 85.0);
+}
+
+#[test]
+fn test_log_blood_pressure_custom_alias_json_output() {
+    let dir = TempDir::new().unwrap();
+    init_dir(&dir);
+
+    cmd_in(&dir)
+        .args(["config", "set", "alias.press", "blood_pressure"])
+        .assert()
+        .success();
+
+    let assert = cmd_in(&dir)
+        .args(["log", "press", "128/84"])
+        .assert()
+        .success();
+
+    let json = parse_json(&assert);
+    let entries = json["data"]["entries"].as_array().unwrap();
+    assert_eq!(entries.len(), 2);
+    assert_eq!(entries[0]["type"], "bp_systolic");
+    assert_eq!(entries[0]["value"], 128.0);
+    assert_eq!(entries[1]["type"], "bp_diastolic");
+    assert_eq!(entries[1]["value"], 84.0);
 }
 
 #[test]
