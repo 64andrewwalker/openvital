@@ -8,6 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 cargo build                        # Dev build
 cargo build --release              # Release build
 cargo test                         # Run all tests
+cargo test test_name               # Run single test
 cargo fmt --all                    # Auto-format
 cargo fmt --all -- --check         # Check formatting (CI)
 cargo clippy -- -D warnings        # Lint (warnings = errors in CI)
@@ -21,19 +22,35 @@ CI enforces: `check`, `fmt --check`, `clippy -D warnings`, and `test` on Linux/m
 
 ```
 src/
-├── cli.rs          # clap definitions (Cli, Commands, ConfigAction)
+├── cli.rs          # clap definitions (Cli, Commands, GoalAction, ConfigAction)
 ├── main.rs         # Parse CLI → dispatch to cmd/ → handle errors
+├── lib.rs          # Public API: re-exports core, db, models, output
 ├── cmd/            # Thin shells: open db + call core + format output
+│   ├── config.rs   # config show/set
+│   ├── export.rs   # export (csv/json) and import (csv/json)
+│   ├── goal.rs     # goal set/status/remove
+│   ├── init.rs     # init profile
+│   ├── log.rs      # log single + batch
+│   ├── report.rs   # period reports (week/month/custom)
+│   ├── show.rs     # show entries
+│   ├── status.rs   # daily status overview
+│   └── trend.rs    # trend analysis + correlation
 ├── core/           # Pure business logic, no CLI/IO dependency
+│   ├── export.rs   # to_csv, to_json, import_json, import_csv
+│   ├── goal.rs     # set_goal, remove_goal, goal_status
 │   ├── logging.rs  # log_metric(LogEntry), log_batch()
 │   ├── query.rs    # show() → ShowResult enum
-│   └── status.rs   # compute() → StatusData struct
+│   ├── report.rs   # generate() → ReportResult
+│   ├── status.rs   # compute(), compute_streaks(), check_consecutive_pain()
+│   └── trend.rs    # compute() → TrendResult, correlate() → CorrelationResult
 ├── db/
 │   ├── mod.rs      # Database struct (rusqlite Connection wrapper)
-│   ├── migrate.rs  # Schema creation + indexes
-│   └── metrics.rs  # insert_metric, query_by_type, query_by_date
+│   ├── migrate.rs  # Schema creation + indexes (metrics + goals tables)
+│   ├── metrics.rs  # insert, query_by_type/date/range/all, distinct_entry_dates
+│   └── goals.rs    # insert/list/get/remove goals
 ├── models/
 │   ├── metric.rs   # Metric, Category, default_unit()
+│   ├── goal.rs     # Goal, Direction, Timeframe with FromStr traits
 │   └── config.rs   # Config, Profile, Units, Alerts + load/save/aliases
 └── output/
     ├── mod.rs      # JSON envelope: success(), error()
@@ -41,6 +58,8 @@ src/
 ```
 
 **Key rule**: `cmd/` never contains business logic — it delegates to `core/`. This allows future entry points (MCP server, plugin system) to reuse `core/` directly.
+
+**Crate structure**: `lib.rs` exposes public modules for integration tests. Binary crate (`main.rs`) uses `openvital::` path for all imports from lib. `cmd/` files use `openvital::` prefix, not `crate::`.
 
 ## Output Contract
 
@@ -59,6 +78,26 @@ All commands default to JSON with a standard envelope:
 - **Alias resolution**: Config aliases (e.g., `w`→`weight`) are resolved in `core/` before any DB operation
 - **Tags**: comma-separated on input, stored as JSON array in SQLite
 - **Timestamps**: stored as RFC3339 (UTC), queried by date range for day-level queries
+- **Goals**: stored in goals table with direction (above/below/equal) and timeframe (daily/weekly/monthly)
+
+## CLI Commands
+
+| Command | Description |
+|---------|-------------|
+| `init` | Profile setup |
+| `log <type> <value>` | Log metric entry (single or `--batch`) |
+| `show [type]` | Show metric history |
+| `trend <type>` | Trend analysis with period bucketing |
+| `trend --correlate a,b` | Pearson correlation between two metrics |
+| `goal set/status/remove` | Goal management |
+| `status` | Daily overview with streaks, pain alerts |
+| `report` | Period reports (week/month/custom range) |
+| `export` | Export to CSV/JSON |
+| `import` | Import from CSV/JSON |
+| `config show/set` | Configuration management |
+| `completions <shell>` | Shell completions (bash/zsh/fish) |
+
+Global flags: `--human/-H`, `--quiet/-q`, `--date`, `--config`
 
 ## Development Workflow: BDD + TDD
 
@@ -70,23 +109,19 @@ When developing features or fixing bugs, follow **BDD (Behavior-Driven Developme
 4. **Refactor** — Clean up while keeping tests green.
 
 Test organization:
-- **Unit tests** — `#[cfg(test)] mod tests` inside each source file, for pure logic in `core/` and `models/`
 - **Integration tests** — `tests/` directory, exercising the full pipeline (db → core → output) with a temp database
-
-Example cycle for a new command `openvital trend`:
-1. Write `tests/trend.rs` asserting JSON output shape and edge cases
-2. Add `core/trend.rs` with failing stubs
-3. Implement until tests pass
-4. Wire up `cmd/trend.rs` + `cli.rs`
+- **Unit tests** — `#[cfg(test)] mod tests` inside source files for pure logic
 
 ## Conventions
 
 - `anyhow::Result<T>` for all fallible functions
 - Clippy with `-D warnings` — no exceptions, no `#[allow]` unless structurally necessary
 - Params structs (e.g., `LogEntry`) instead of functions with >7 arguments
+- Use let-chain syntax for collapsible `if let` + condition (Rust 2024 edition)
+- `FromStr` trait for enums parsed from CLI strings (Direction, Timeframe, TrendPeriod)
 - New commands: add variant to `Commands` enum in `cli.rs`, handler in `cmd/`, logic in `core/`
 - Release via [Conventional Commits](https://www.conventionalcommits.org/) → release-please automates versioning
 
 ## Spec Reference
 
-`openvital-spec.md` contains the full product specification. Phase 1 (MVP) is implemented. Phase 2 (trend, goal, report, streak) and Phase 3 (export/import, correlation) are planned — directory structure already accommodates them.
+`openvital-spec.md` contains the full product specification. All Phase 1-3 features are implemented.
