@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0](https://github.com/64andrewwalker/openvital/compare/v0.1.0...v0.2.0) (2026-02-18)
+
+
+### Features
+
+* v0.2 bug fixes and UX improvements ([#3](https://github.com/64andrewwalker/openvital/issues/3)) ([736fb89](https://github.com/64andrewwalker/openvital/commit/736fb89b3a70cb6eddf496ffdf9bb910ff1ceeba))
+
 ## 0.1.0 (2026-02-18)
 
 
