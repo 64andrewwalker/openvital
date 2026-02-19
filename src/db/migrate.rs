@@ -26,7 +26,26 @@ pub fn run(conn: &Connection) -> Result<()> {
             active       INTEGER NOT NULL DEFAULT 1,
             created_at   TEXT NOT NULL
         );
-        CREATE INDEX IF NOT EXISTS idx_goals_type ON goals(metric_type, active);",
+        CREATE INDEX IF NOT EXISTS idx_goals_type ON goals(metric_type, active);
+
+        CREATE TABLE IF NOT EXISTS medications (
+            id          TEXT PRIMARY KEY,
+            name        TEXT NOT NULL,
+            dose        TEXT,
+            dose_value  REAL,
+            dose_unit   TEXT,
+            route       TEXT NOT NULL DEFAULT 'oral',
+            frequency   TEXT NOT NULL,
+            active      INTEGER NOT NULL DEFAULT 1,
+            started_at  TEXT NOT NULL,
+            stopped_at  TEXT,
+            stop_reason TEXT,
+            note        TEXT,
+            created_at  TEXT NOT NULL
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_medications_name_active
+            ON medications(name) WHERE active = 1;
+        CREATE INDEX IF NOT EXISTS idx_medications_active ON medications(active);",
     )?;
     Ok(())
 }
