@@ -139,3 +139,23 @@ fn test_display_unit_weight_imperial() {
     let u = Units::imperial();
     assert_eq!(units::display_unit("weight", &u), "lbs");
 }
+
+#[test]
+fn test_default_unit_calories() {
+    assert_eq!(openvital::models::metric::default_unit("calories"), "kcal");
+}
+
+#[test]
+fn test_default_unit_calories_out() {
+    assert_eq!(
+        openvital::models::metric::default_unit("calories_out"),
+        "kcal"
+    );
+}
+
+#[test]
+fn test_calories_category_is_nutrition() {
+    use openvital::models::metric::Category;
+    assert_eq!(Category::from_type("calories"), Category::Nutrition);
+    assert_eq!(Category::from_type("calories_out"), Category::Nutrition);
+}

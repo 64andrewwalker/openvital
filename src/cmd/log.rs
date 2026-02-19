@@ -28,11 +28,14 @@ pub fn run(
         )?;
 
         if human_flag {
-            let (sv, su) =
-                openvital::core::units::to_display(m1.value, "bp_systolic", &config.units);
-            let (dv, _) =
-                openvital::core::units::to_display(m2.value, "bp_diastolic", &config.units);
-            println!("Logged: BP {}/{} {}", sv, dv, su);
+            println!(
+                "Logged: {}",
+                human::format_metric_with_units(&m1, &config.units)
+            );
+            println!(
+                "Logged: {}",
+                human::format_metric_with_units(&m2, &config.units)
+            );
         } else {
             let out = output::success(
                 "log",

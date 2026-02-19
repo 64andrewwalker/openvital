@@ -40,7 +40,11 @@ pub fn run_set(key: &str, value: &str) -> Result<()> {
             let alias = k.strip_prefix("alias.").unwrap();
             config.aliases.insert(alias.to_string(), value.to_string());
         }
-        _ => anyhow::bail!("unknown config key: {}", key),
+        _ => anyhow::bail!(
+            "unknown config key: '{}'. Valid keys: height, birth_year, gender, \
+             conditions, primary_exercise, units.system, alias.<name>",
+            key
+        ),
     }
 
     config.save()?;

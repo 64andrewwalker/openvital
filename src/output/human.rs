@@ -2,6 +2,16 @@ use crate::core::status::StatusData;
 use crate::models::Metric;
 use crate::models::config::Units;
 
+/// Format a value with its unit, handling scale units like "0-10" → "7/10".
+fn format_value_with_unit(val: f64, unit: &str) -> String {
+    match unit {
+        "0-10" | "1-10" => format!("{}/10", val),
+        "1-5" => format!("{}/5", val),
+        "" => format!("{}", val),
+        u => format!("{} {}", val, u),
+    }
+}
+
 /// Pretty-print a single metric entry.
 pub fn format_metric(m: &Metric) -> String {
     let ts = m.timestamp.format("%Y-%m-%d %H:%M");
@@ -20,10 +30,8 @@ pub fn format_metric_with_units(m: &Metric, user_units: &Units) -> String {
     let ts = m.timestamp.format("%Y-%m-%d %H:%M");
     let (display_val, display_unit) =
         crate::core::units::to_display(m.value, &m.metric_type, user_units);
-    let mut line = format!(
-        "{} | {} = {} {}",
-        ts, m.metric_type, display_val, display_unit
-    );
+    let value_display = format_value_with_unit(display_val, &display_unit);
+    let mut line = format!("{} | {} = {}", ts, m.metric_type, value_display);
     if let Some(ref note) = m.note {
         line.push_str(&format!("  # {}", note));
     }

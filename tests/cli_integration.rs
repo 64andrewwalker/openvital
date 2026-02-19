@@ -2155,11 +2155,21 @@ fn test_log_blood_pressure_human_output() {
     let dir = TempDir::new().unwrap();
     init_dir(&dir);
 
-    cmd_in(&dir)
+    let assert = cmd_in(&dir)
         .args(["--human", "log", "blood_pressure", "120/80"])
         .assert()
-        .success()
-        .stdout(predicate::str::contains("BP 120/80 mmHg"));
+        .success();
+    let stdout = String::from_utf8_lossy(&assert.get_output().stdout);
+    assert!(
+        stdout.contains("bp_systolic") && stdout.contains("bp_diastolic"),
+        "BP human output should show bp_systolic and bp_diastolic, got: {}",
+        stdout
+    );
+    assert!(
+        stdout.contains("mmHg"),
+        "BP human output should show mmHg unit, got: {}",
+        stdout
+    );
 }
 
 // ── imperial unit conversions ────────────────────────────────────────────────
@@ -2381,7 +2391,7 @@ fn test_trend_imperial_rate_uses_display_unit() {
         ])
         .assert()
         .success()
-        .stdout(predicate::str::contains("lbs per daily"));
+        .stdout(predicate::str::contains("lbs per day"));
 }
 
 // ── batch simple format ──────────────────────────────────────────────────────
@@ -2447,5 +2457,193 @@ fn test_config_set_height_imperial_converts_feet_to_cm() {
         (height_cm - 177.7).abs() < 1.0,
         "expected ~177.7 cm, got {} (imperial feet were not converted)",
         height_cm
+    );
+}
+
+// ─── Fix 3: init with empty stdin should fail, not loop ──────────────────────
+
+#[test]
+fn test_init_empty_stdin_fails_not_loops() {
+    let dir = TempDir::new().unwrap();
+
+    // Empty stdin (EOF immediately) — should fail, not loop
+    cmd_in(&dir)
+        .args(["init"])
+        .write_stdin("")
+        .timeout(std::time::Duration::from_secs(5))
+        .assert()
+        .failure();
+}
+
+// ─── Fix 4: init weight has source="init" ────────────────────────────────────
+
+#[test]
+fn test_init_weight_has_source_init() {
+    let dir = TempDir::new().unwrap();
+
+    let stdin_input = "175\n80.0\n1990\nmale\n\nrunning\n";
+    cmd_in(&dir)
+        .args(["init"])
+        .write_stdin(stdin_input)
+        .assert()
+        .success();
+
+    let assert = cmd_in(&dir).args(["show", "weight"]).assert().success();
+    let json = parse_json(&assert);
+    let entries = json["data"]["entries"].as_array().unwrap();
+    assert!(!entries.is_empty());
+    assert_eq!(
+        entries[0]["source"], "init",
+        "init weight should have source='init'"
+    );
+}
+
+// ─── Fix 5: --batch conflicts with TYPE/VALUE ────────────────────────────────
+
+#[test]
+fn test_log_batch_conflicts_with_type_value() {
+    let dir = TempDir::new().unwrap();
+    init_dir(&dir);
+
+    cmd_in(&dir)
+        .args(["log", "weight", "74.5", "--batch", "steps:9000"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("cannot be used with"));
+}
+
+// ─── Fix 7: goal remove by metric type ───────────────────────────────────────
+
+#[test]
+fn test_goal_remove_by_metric_type() {
+    let dir = TempDir::new().unwrap();
+    init_dir(&dir);
+
+    // Set a goal for steps
+    cmd_in(&dir)
+        .args(["goal", "set", "steps", "10000", "above", "daily"])
+        .assert()
+        .success();
+
+    // Remove by metric type name (not UUID)
+    cmd_in(&dir)
+        .args(["goal", "remove", "steps"])
+        .assert()
+        .success();
+
+    // Verify goal is removed
+    let assert = cmd_in(&dir).args(["goal", "status"]).assert().success();
+    let json = parse_json(&assert);
+    let goals = json["data"]["goals"].as_array().unwrap();
+    assert!(
+        goals.is_empty(),
+        "goal should be removed when using metric type"
+    );
+}
+
+// ─── Fix 9: trend rate_unit uses noun form ───────────────────────────────────
+
+#[test]
+fn test_trend_rate_unit_uses_noun_form() {
+    let dir = TempDir::new().unwrap();
+    init_dir(&dir);
+
+    // Log enough data for trend
+    cmd_in(&dir)
+        .args(["log", "weight", "80", "--date", "2026-02-10"])
+        .assert()
+        .success();
+    cmd_in(&dir)
+        .args(["log", "weight", "79.5", "--date", "2026-02-17"])
+        .assert()
+        .success();
+
+    let assert = cmd_in(&dir)
+        .args(["trend", "weight", "--period", "weekly"])
+        .assert()
+        .success();
+    let json = parse_json(&assert);
+    let rate_unit = json["data"]["trend"]["rate_unit"].as_str().unwrap();
+    assert_eq!(
+        rate_unit, "per week",
+        "rate_unit should be 'per week', not 'per weekly'"
+    );
+}
+
+// ─── Fix 10: correlation with 2 data points → insufficient data ──────────────
+
+#[test]
+fn test_correlation_two_points_insufficient_data() {
+    let dir = TempDir::new().unwrap();
+    init_dir(&dir);
+
+    // Log exactly 2 matching data points
+    cmd_in(&dir)
+        .args(["log", "weight", "80", "--date", "2026-02-10"])
+        .assert()
+        .success();
+    cmd_in(&dir)
+        .args(["log", "steps", "8000", "--date", "2026-02-10"])
+        .assert()
+        .success();
+    cmd_in(&dir)
+        .args(["log", "weight", "79", "--date", "2026-02-11"])
+        .assert()
+        .success();
+    cmd_in(&dir)
+        .args(["log", "steps", "10000", "--date", "2026-02-11"])
+        .assert()
+        .success();
+
+    let assert = cmd_in(&dir)
+        .args(["trend", "--correlate", "weight,steps"])
+        .assert()
+        .success();
+    let json = parse_json(&assert);
+    let interpretation = json["data"]["interpretation"].as_str().unwrap();
+    assert_eq!(
+        interpretation, "insufficient data",
+        "2 data points should be insufficient"
+    );
+}
+
+// ─── Fix 11: config set unknown key lists valid keys ─────────────────────────
+
+#[test]
+fn test_config_set_unknown_key_lists_valid_keys() {
+    let dir = TempDir::new().unwrap();
+    init_dir(&dir);
+
+    let assert = cmd_in(&dir)
+        .args(["config", "set", "invalid_key", "val"])
+        .assert()
+        .failure();
+    let stderr = String::from_utf8_lossy(&assert.get_output().stderr);
+    assert!(
+        stderr.contains("height"),
+        "error should list valid keys, got: {}",
+        stderr
+    );
+}
+
+// ─── Fix 12: show with no args shows tip in human mode ───────────────────────
+
+#[test]
+fn test_show_no_args_human_shows_tip() {
+    let dir = TempDir::new().unwrap();
+    init_dir(&dir);
+
+    // Log something so show has data
+    cmd_in(&dir)
+        .args(["log", "weight", "80"])
+        .assert()
+        .success();
+
+    let assert = cmd_in(&dir).args(["show", "--human"]).assert().success();
+    let stdout = String::from_utf8_lossy(&assert.get_output().stdout);
+    assert!(
+        stdout.contains("Tip:"),
+        "show with no type should display a tip, got: {}",
+        stdout
     );
 }

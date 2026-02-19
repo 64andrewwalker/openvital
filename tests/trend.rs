@@ -44,6 +44,7 @@ fn test_trend_empty_data() {
     let result = trend::compute(&db, "weight", TrendPeriod::Weekly, Some(12)).unwrap();
     assert!(result.data.is_empty());
     assert_eq!(result.trend.direction, "stable");
+    assert_eq!(result.trend.rate_unit, "per week");
 }
 
 #[test]
@@ -120,7 +121,7 @@ fn test_monthly_period_bucketing() {
     assert!((result.data[1].avg - 77.25).abs() < 0.01);
 
     assert_eq!(result.trend.direction, "decreasing");
-    assert_eq!(result.trend.rate_unit, "per monthly");
+    assert_eq!(result.trend.rate_unit, "per month");
 }
 
 #[test]

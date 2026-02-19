@@ -104,6 +104,14 @@ impl Database {
         )?;
         Ok(count > 0)
     }
+
+    pub fn remove_goal_by_type(&self, metric_type: &str) -> Result<bool> {
+        let count = self.conn.execute(
+            "UPDATE goals SET active = 0 WHERE metric_type = ?1 AND active = 1",
+            params![metric_type],
+        )?;
+        Ok(count > 0)
+    }
 }
 
 struct GoalRow {

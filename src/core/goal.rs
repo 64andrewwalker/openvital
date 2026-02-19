@@ -21,9 +21,12 @@ pub fn set_goal(
     Ok(goal)
 }
 
-/// Remove a goal by ID.
-pub fn remove_goal(db: &Database, goal_id: &str) -> Result<bool> {
-    db.remove_goal(goal_id)
+/// Remove a goal by ID or metric type.
+pub fn remove_goal(db: &Database, id_or_type: &str) -> Result<bool> {
+    if db.remove_goal(id_or_type)? {
+        return Ok(true);
+    }
+    db.remove_goal_by_type(id_or_type)
 }
 
 #[derive(Serialize)]

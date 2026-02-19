@@ -80,7 +80,7 @@ pub fn compute(
             trend: TrendSummary {
                 direction: "stable".to_string(),
                 rate: 0.0,
-                rate_unit: format!("per {}", period_label(&period)),
+                rate_unit: format!("per {}", period_noun(&period)),
                 projected_30d: None,
             },
         });
@@ -149,13 +149,21 @@ fn period_label(period: &TrendPeriod) -> String {
     }
 }
 
+fn period_noun(period: &TrendPeriod) -> &'static str {
+    match period {
+        TrendPeriod::Daily => "day",
+        TrendPeriod::Weekly => "week",
+        TrendPeriod::Monthly => "month",
+    }
+}
+
 fn compute_trend(data: &[PeriodData], period: &TrendPeriod) -> TrendSummary {
     if data.len() < 2 {
         let last_val = data.first().map(|d| d.avg);
         return TrendSummary {
             direction: "stable".to_string(),
             rate: 0.0,
-            rate_unit: format!("per {}", period_label(period)),
+            rate_unit: format!("per {}", period_noun(period)),
             projected_30d: last_val,
         };
     }
@@ -203,7 +211,7 @@ fn compute_trend(data: &[PeriodData], period: &TrendPeriod) -> TrendSummary {
     TrendSummary {
         direction: direction.to_string(),
         rate,
-        rate_unit: format!("per {}", period_label(period)),
+        rate_unit: format!("per {}", period_noun(period)),
         projected_30d: Some(projected),
     }
 }
@@ -239,7 +247,7 @@ pub fn correlate(
     }
 
     let n = pairs.len();
-    if n < 2 {
+    if n < 3 {
         return Ok(CorrelationResult {
             metric_a: metric_a.to_string(),
             metric_b: metric_b.to_string(),
@@ -266,12 +274,16 @@ pub fn correlate(
         (numerator / denominator * 100.0).round() / 100.0
     };
 
-    let interpretation = match coefficient.abs() {
+    let base = match coefficient.abs() {
         r if r < 0.3 => "weak",
         r if r < 0.7 => "moderate",
         _ => "strong",
-    }
-    .to_string();
+    };
+    let interpretation = if n < 10 {
+        format!("{} (low sample size: {} points)", base, n)
+    } else {
+        base.to_string()
+    };
 
     Ok(CorrelationResult {
         metric_a: metric_a.to_string(),
