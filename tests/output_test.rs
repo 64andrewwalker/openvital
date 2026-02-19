@@ -520,3 +520,41 @@ fn test_format_progress_human_no_data() {
     let result = format_progress_human(&status, &Units::default());
     assert_eq!(result, "no data");
 }
+
+// ─── format_metric_with_units scale unit tests ────────────────────────────────
+
+use openvital::output::human::format_metric_with_units;
+
+#[test]
+fn test_pain_display_shows_slash_format() {
+    let m = make_test_metric("pain", 7.0);
+    let result = format_metric_with_units(&m, &Units::default());
+    assert!(
+        result.contains("7/10"),
+        "pain should display as 7/10, got: {}",
+        result
+    );
+    assert!(!result.contains("0-10"), "should not show raw 0-10 scale");
+}
+
+#[test]
+fn test_sleep_quality_display_shows_slash_format() {
+    let m = make_test_metric("sleep_quality", 4.0);
+    let result = format_metric_with_units(&m, &Units::default());
+    assert!(
+        result.contains("4/5"),
+        "sleep_quality should display as 4/5, got: {}",
+        result
+    );
+}
+
+#[test]
+fn test_mood_display_shows_slash_format() {
+    let m = make_test_metric("mood", 8.0);
+    let result = format_metric_with_units(&m, &Units::default());
+    assert!(
+        result.contains("8/10"),
+        "mood should display as 8/10, got: {}",
+        result
+    );
+}

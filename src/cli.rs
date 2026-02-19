@@ -63,8 +63,8 @@ pub enum Commands {
         #[arg(long)]
         source: Option<String>,
 
-        /// Batch JSON array of entries
-        #[arg(long)]
+        /// Batch entries: JSON array or simple "type:value,type:value" format
+        #[arg(long, conflicts_with_all = ["type", "value"])]
         batch: Option<String>,
     },
 
@@ -212,7 +212,7 @@ pub enum GoalAction {
     },
     /// Remove a goal
     Remove {
-        /// Goal ID to remove
+        /// Goal ID or metric type to remove
         goal_id: String,
     },
 }

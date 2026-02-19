@@ -47,6 +47,9 @@ pub fn run(
                         println!("{}", human::format_metric_with_units(m, &config.units));
                     }
                 }
+                if metric_type.is_none() {
+                    println!("\nTip: use 'show <type>' to see history for a specific metric.");
+                }
             } else {
                 let out = output::success(
                     "show",

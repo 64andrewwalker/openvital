@@ -120,7 +120,7 @@ fn test_monthly_period_bucketing() {
     assert!((result.data[1].avg - 77.25).abs() < 0.01);
 
     assert_eq!(result.trend.direction, "decreasing");
-    assert_eq!(result.trend.rate_unit, "per monthly");
+    assert_eq!(result.trend.rate_unit, "per month");
 }
 
 #[test]

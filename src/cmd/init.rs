@@ -71,7 +71,8 @@ pub fn run(skip: bool, units_arg: Option<&str>) -> Result<()> {
 
         // Log initial weight (always stored in kg)
         let db = Database::open(&Config::db_path())?;
-        let m = Metric::new("weight".into(), weight_kg);
+        let mut m = Metric::new("weight".into(), weight_kg);
+        m.source = "init".to_string();
         db.insert_metric(&m)?;
 
         println!("\nSetup complete. Data stored in {:?}", Config::data_dir());
@@ -87,7 +88,10 @@ fn prompt_string(label: &str) -> Result<String> {
     print!("{}: ", label);
     io::stdout().flush()?;
     let mut buf = String::new();
-    io::stdin().read_line(&mut buf)?;
+    let bytes_read = io::stdin().read_line(&mut buf)?;
+    if bytes_read == 0 {
+        anyhow::bail!("unexpected end of input (non-interactive stdin)");
+    }
     Ok(buf.trim().to_string())
 }
 
