@@ -260,6 +260,16 @@ pub fn format_med_status(statuses: &[MedStatus], date: chrono::NaiveDate) -> Str
         out.push_str(&format!("  {:<14}{}\n", s.name, parts.join("    ")));
     }
 
+    // Overall adherence (exclude as_needed)
+    let adherence_values: Vec<f64> = statuses.iter().filter_map(|s| s.adherence_7d).collect();
+    if !adherence_values.is_empty() {
+        let overall = adherence_values.iter().sum::<f64>() / adherence_values.len() as f64;
+        out.push_str(&format!(
+            "\nOverall 7-day adherence: {:.0}%",
+            overall * 100.0
+        ));
+    }
+
     out.trim_end().to_string()
 }
 

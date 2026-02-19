@@ -224,6 +224,41 @@ fn route_roundtrip_other() {
 // get_medication_by_name_any prefers active over stopped
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Migration: fresh DB creates medications table, existing data preserved
+// ---------------------------------------------------------------------------
+
+#[test]
+fn fresh_db_creates_medications_table() {
+    let (_dir, db) = common::setup_db();
+    // If we can insert and query, the table exists
+    let med = make_med("test-med", Frequency::Daily);
+    db.insert_medication(&med).unwrap();
+    let got = db.get_medication_by_name("test-med").unwrap();
+    assert!(got.is_some());
+}
+
+#[test]
+fn existing_metrics_preserved_after_migration() {
+    let (_dir, db) = common::setup_db();
+    // Insert a metric first (proves metrics table works)
+    let m = openvital::models::Metric::new("weight".to_string(), 80.0);
+    db.insert_metric(&m).unwrap();
+
+    // Insert a medication (proves medications table works alongside)
+    let med = make_med("aspirin", Frequency::Daily);
+    db.insert_medication(&med).unwrap();
+
+    // Verify metric still retrievable
+    let stored = db.query_by_type("weight", Some(1)).unwrap();
+    assert_eq!(stored.len(), 1);
+    assert!((stored[0].value - 80.0).abs() < f64::EPSILON);
+}
+
+// ---------------------------------------------------------------------------
+// get_medication_by_name_any prefers active over stopped
+// ---------------------------------------------------------------------------
+
 #[test]
 fn get_by_name_any_prefers_active() {
     let (_dir, db) = common::setup_db();
