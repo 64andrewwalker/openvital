@@ -11,6 +11,7 @@ pub enum Category {
     Nutrition,
     Pain,
     Habit,
+    Medication,
     Custom,
 }
 
@@ -37,6 +38,7 @@ impl std::fmt::Display for Category {
             Self::Nutrition => write!(f, "nutrition"),
             Self::Pain => write!(f, "pain"),
             Self::Habit => write!(f, "habit"),
+            Self::Medication => write!(f, "medication"),
             Self::Custom => write!(f, "custom"),
         }
     }
