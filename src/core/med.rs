@@ -282,21 +282,49 @@ pub fn adherence_status(
 
             // Streak: count backward from today
             let mut streak = 0u32;
-            for i in 0.. {
-                let day = today - chrono::Duration::days(i);
-                if day < started_date {
-                    break;
+            if is_weekly {
+                // For weekly: iterate week by week
+                let weekday = today.weekday().num_days_from_monday();
+                let mut week_start = today - chrono::Duration::days(weekday as i64);
+                loop {
+                    if week_start < started_date - chrono::Duration::days(6) {
+                        break;
+                    }
+                    if let Some(sd) = stopped_date
+                        && week_start > sd
+                    {
+                        break;
+                    }
+                    let week_end = week_start + chrono::Duration::days(6);
+                    let entries = db.query_by_date_range(week_start, week_end)?;
+                    let taken = entries
+                        .iter()
+                        .filter(|m| m.metric_type == med.name && m.source == "med_take")
+                        .count();
+                    if taken >= 1 {
+                        streak += 1;
+                    } else {
+                        break;
+                    }
+                    week_start -= chrono::Duration::days(7);
                 }
-                if let Some(sd) = stopped_date
-                    && day > sd
-                {
-                    break;
-                }
-                let day_adherent = check_day_adherent(db, &med.name, day, &med.frequency)?;
-                if day_adherent {
-                    streak += 1;
-                } else {
-                    break;
+            } else {
+                for i in 0.. {
+                    let day = today - chrono::Duration::days(i);
+                    if day < started_date {
+                        break;
+                    }
+                    if let Some(sd) = stopped_date
+                        && day > sd
+                    {
+                        break;
+                    }
+                    let day_adherent = check_day_adherent(db, &med.name, day, &med.frequency)?;
+                    if day_adherent {
+                        streak += 1;
+                    } else {
+                        break;
+                    }
                 }
             }
 

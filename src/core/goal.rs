@@ -126,9 +126,19 @@ fn compute_current(db: &Database, goal: &Goal, today: NaiveDate) -> Result<Optio
             }
         }
         Timeframe::Monthly => {
-            // For monthly, use the latest value
-            let entries = db.query_by_type(&goal.metric_type, Some(1))?;
-            Ok(entries.first().map(|m| m.value))
+            let first_of_month = today.with_day(1).unwrap();
+            let entries = db.query_by_date_range(first_of_month, today)?;
+            let month_entries: Vec<_> = entries
+                .iter()
+                .filter(|m| m.metric_type == goal.metric_type)
+                .collect();
+            if month_entries.is_empty() {
+                Ok(None)
+            } else if cumulative {
+                Ok(Some(month_entries.iter().map(|m| m.value).sum()))
+            } else {
+                Ok(Some(month_entries.last().unwrap().value))
+            }
         }
     }
 }

@@ -236,9 +236,17 @@ pub fn correlate(
     let entries_a = db.query_by_type_asc(metric_a, None)?;
     let entries_b = db.query_by_type_asc(metric_b, None)?;
 
-    // Group by date, compute daily averages
-    let avg_a = daily_averages(&entries_a);
-    let avg_b = daily_averages(&entries_b);
+    // Detect medication types: use sum instead of average for daily values
+    let is_med_a = entries_a
+        .first()
+        .is_some_and(|e| e.category == Category::Medication);
+    let is_med_b = entries_b
+        .first()
+        .is_some_and(|e| e.category == Category::Medication);
+
+    // Group by date, compute daily values (sum for medications, average otherwise)
+    let avg_a = daily_values(&entries_a, is_med_a);
+    let avg_b = daily_values(&entries_b, is_med_b);
 
     // Find matching dates
     let mut pairs: Vec<(f64, f64)> = Vec::new();
@@ -304,7 +312,10 @@ pub fn correlate(
     })
 }
 
-fn daily_averages(entries: &[crate::models::metric::Metric]) -> BTreeMap<NaiveDate, f64> {
+fn daily_values(
+    entries: &[crate::models::metric::Metric],
+    use_sum: bool,
+) -> BTreeMap<NaiveDate, f64> {
     let mut day_sums: BTreeMap<NaiveDate, (f64, u32)> = BTreeMap::new();
     for e in entries {
         let date = e.timestamp.date_naive();
@@ -314,6 +325,9 @@ fn daily_averages(entries: &[crate::models::metric::Metric]) -> BTreeMap<NaiveDa
     }
     day_sums
         .into_iter()
-        .map(|(date, (sum, count))| (date, sum / count as f64))
+        .map(|(date, (sum, count))| {
+            let val = if use_sum { sum } else { sum / count as f64 };
+            (date, val)
+        })
         .collect()
 }

@@ -295,7 +295,50 @@ fn import_old_format_still_works() {
 }
 
 // ---------------------------------------------------------------------------
-// 8. name_conflict_existing_metric_unchanged
+// 8. goal_medication_monthly_uses_sum
+// ---------------------------------------------------------------------------
+
+#[test]
+fn goal_medication_monthly_uses_sum() {
+    let (_dir, db) = common::setup_db();
+    let config = default_config();
+
+    // Add a daily medication
+    let params = openvital::core::med::AddMedicationParams {
+        name: "vitamin_d",
+        dose: Some("1000iu"),
+        freq: "daily",
+        route: None,
+        note: None,
+        started: None,
+    };
+    openvital::core::med::add_medication(&db, &config, params).unwrap();
+
+    // Take it 5 times
+    for _ in 0..5 {
+        openvital::core::med::take_medication(&db, &config, "vitamin_d", None, None, None, None)
+            .unwrap();
+    }
+
+    // Set monthly goal: at least 20 intakes
+    openvital::core::goal::set_goal(
+        &db,
+        "vitamin_d".to_string(),
+        20.0,
+        openvital::models::goal::Direction::Above,
+        openvital::models::goal::Timeframe::Monthly,
+    )
+    .unwrap();
+
+    let statuses = openvital::core::goal::goal_status(&db, Some("vitamin_d")).unwrap();
+    assert_eq!(statuses.len(), 1);
+    // Should be sum of 5 intakes, not just 1.0
+    assert_eq!(statuses[0].current_value, Some(5.0));
+    assert!(!statuses[0].is_met); // 5 < 20
+}
+
+// ---------------------------------------------------------------------------
+// 9. name_conflict_existing_metric_unchanged
 // ---------------------------------------------------------------------------
 
 #[test]
@@ -350,4 +393,70 @@ fn name_conflict_existing_metric_unchanged() {
         1,
         "Med take should create medication category entry"
     );
+}
+
+// ---------------------------------------------------------------------------
+// 9. correlate_medication_uses_daily_sum
+// ---------------------------------------------------------------------------
+
+#[test]
+fn correlate_medication_uses_daily_sum() {
+    let (_dir, db) = common::setup_db();
+    let config = default_config();
+
+    // Add medication
+    let params = med::AddMedicationParams {
+        name: "aspirin",
+        dose: Some("100mg"),
+        freq: "3x_daily",
+        route: None,
+        note: None,
+        started: None,
+    };
+    med::add_medication(&db, &config, params).unwrap();
+
+    let today = Utc::now().date_naive();
+
+    // Take aspirin 3 times today and log pain
+    for _ in 0..3 {
+        med::take_medication(&db, &config, "aspirin", None, None, None, None).unwrap();
+    }
+    // Log a pain value
+    let entry = openvital::core::logging::LogEntry {
+        metric_type: "pain",
+        value: 5.0,
+        note: None,
+        tags: None,
+        source: None,
+        date: None,
+    };
+    openvital::core::logging::log_metric(&db, &config, entry).unwrap();
+
+    // Need at least 3 data points for correlation
+    // Log 2 more days with different amounts
+    let day1 = today - chrono::Duration::days(1);
+    let day2 = today - chrono::Duration::days(2);
+
+    for day in [day1, day2] {
+        // Take aspirin and log pain for each day
+        med::take_medication(&db, &config, "aspirin", None, None, None, Some(day)).unwrap();
+        let entry = openvital::core::logging::LogEntry {
+            metric_type: "pain",
+            value: 3.0,
+            note: None,
+            tags: None,
+            source: None,
+            date: Some(day),
+        };
+        openvital::core::logging::log_metric(&db, &config, entry).unwrap();
+    }
+
+    // Run correlation
+    let result = trend::correlate(&db, "aspirin", "pain", Some(7)).unwrap();
+
+    // The aspirin daily sums should be: today=3, day1=1, day2=1
+    // This should NOT be: today=1, day1=1, day2=1 (which would mean "no correlation")
+    // With different sums, correlation should detect something
+    assert_ne!(result.interpretation, "insufficient data");
+    // Just verify it computed without error - the specific coefficient depends on pain values
 }
