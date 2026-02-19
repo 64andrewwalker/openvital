@@ -3,6 +3,7 @@ pub mod export;
 pub mod goal;
 pub mod init;
 pub mod log;
+pub mod med;
 pub mod report;
 pub mod show;
 pub mod status;

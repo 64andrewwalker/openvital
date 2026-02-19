@@ -5,6 +5,7 @@ use std::collections::BTreeMap;
 use std::str::FromStr;
 
 use crate::db::Database;
+use crate::models::metric::Category;
 
 #[derive(Debug, Serialize)]
 pub struct CorrelationResult {
@@ -70,6 +71,11 @@ pub fn compute(
     // Fetch all entries in ascending order for bucketing
     let entries = db.query_by_type_asc(metric_type, None)?;
 
+    // Detect medication type: use sum aggregation instead of average
+    let is_medication = entries
+        .first()
+        .is_some_and(|e| e.category == Category::Medication);
+
     let limit = last.unwrap_or(12) as usize;
 
     if entries.is_empty() {
@@ -100,7 +106,11 @@ pub fn compute(
         .map(|(label, values)| {
             let count = values.len() as u32;
             let sum: f64 = values.iter().sum();
-            let avg = sum / values.len() as f64;
+            let avg = if is_medication {
+                sum
+            } else {
+                sum / values.len() as f64
+            };
             let min = values.iter().cloned().fold(f64::INFINITY, f64::min);
             let max = values.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
             PeriodData {

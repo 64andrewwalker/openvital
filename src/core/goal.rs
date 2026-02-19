@@ -71,10 +71,19 @@ pub fn goal_status(db: &Database, metric_type: Option<&str>) -> Result<Vec<GoalS
     Ok(results)
 }
 
+/// Check if a metric type is a medication by looking at stored entries.
+fn is_medication_type(db: &Database, metric_type: &str) -> Result<bool> {
+    use crate::models::metric::Category;
+    let entries = db.query_by_type(metric_type, Some(1))?;
+    Ok(entries
+        .first()
+        .is_some_and(|e| e.category == Category::Medication))
+}
+
 /// Compute the current value for a goal based on its timeframe.
 fn compute_current(db: &Database, goal: &Goal, today: NaiveDate) -> Result<Option<f64>> {
     use crate::models::metric::is_cumulative;
-    let cumulative = is_cumulative(&goal.metric_type);
+    let cumulative = is_cumulative(&goal.metric_type) || is_medication_type(db, &goal.metric_type)?;
 
     match goal.timeframe {
         Timeframe::Daily => {

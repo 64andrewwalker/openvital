@@ -160,6 +160,10 @@ pub enum Commands {
         /// Filter to date
         #[arg(long)]
         to: Option<NaiveDate>,
+
+        /// Include medication records in export
+        #[arg(long)]
+        with_medications: bool,
     },
 
     /// Import data from external sources
@@ -171,6 +175,12 @@ pub enum Commands {
         /// Input file path
         #[arg(long)]
         file: String,
+    },
+
+    /// Manage medications
+    Med {
+        #[command(subcommand)]
+        action: MedAction,
     },
 
     /// Generate shell completions
@@ -227,6 +237,71 @@ pub enum ConfigAction {
         key: String,
         /// Config value
         value: String,
+    },
+}
+
+#[derive(Subcommand)]
+pub enum MedAction {
+    /// Add a medication to the active list
+    Add {
+        /// Medication name (e.g., "ibuprofen")
+        name: String,
+        /// Dosage (e.g., "400mg", "5ml", "thin layer")
+        #[arg(long)]
+        dose: Option<String>,
+        /// Frequency: daily, 2x_daily, 3x_daily, weekly, as_needed
+        #[arg(long)]
+        freq: String,
+        /// Administration route (default: oral)
+        #[arg(long, default_value = "oral")]
+        route: String,
+        /// Notes (e.g., "take with food")
+        #[arg(long)]
+        note: Option<String>,
+        /// Start date (default: today)
+        #[arg(long)]
+        started: Option<NaiveDate>,
+    },
+    /// Record a dose taken
+    Take {
+        /// Medication name
+        name: String,
+        /// Override dose for this intake
+        #[arg(long)]
+        dose: Option<String>,
+        /// Note for this intake
+        #[arg(long)]
+        note: Option<String>,
+        /// Comma-separated tags
+        #[arg(long)]
+        tags: Option<String>,
+    },
+    /// List medications (active by default)
+    List {
+        /// Include stopped medications
+        #[arg(long)]
+        all: bool,
+    },
+    /// Mark a medication as stopped
+    Stop {
+        /// Medication name
+        name: String,
+        /// Reason for stopping
+        #[arg(long)]
+        reason: Option<String>,
+    },
+    /// Delete a medication record
+    Remove {
+        /// Medication name
+        name: String,
+    },
+    /// View adherence status
+    Status {
+        /// Medication name (all if omitted)
+        name: Option<String>,
+        /// Show adherence for last N days (default: 7)
+        #[arg(long, default_value = "7")]
+        last: u32,
     },
 }
 

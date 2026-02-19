@@ -1321,7 +1321,8 @@ fn test_import_json_round_trip() {
     let json = parse_json(&assert);
     assert_eq!(json["status"], "ok");
     assert_eq!(json["command"], "import");
-    assert_eq!(json["data"]["count"], 2);
+    assert_eq!(json["data"]["metric_count"], 2);
+    assert_eq!(json["data"]["medication_count"], 0);
 }
 
 #[test]
