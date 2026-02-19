@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.3.1](https://github.com/64andrewwalker/openvital/compare/v0.3.0...v0.3.1) (2026-02-19)
+
+
+### Bug Fixes
+
+* address 13 PM review issues (4 P0, 5 P1, 3 P2) ([6a332f8](https://github.com/64andrewwalker/openvital/commit/6a332f85dddc14a2bc898a46a616ffe540d6b321))
+* address 13 PM review issues (4 P0, 5 P1, 3 P2) ([82be643](https://github.com/64andrewwalker/openvital/commit/82be6436761af8bd07bfb0577571d522a8b1f541))
+* **trend:** use noun rate unit for empty results ([f0fb334](https://github.com/64andrewwalker/openvital/commit/f0fb3342652f4f8500d5fc039aea5b520638466d))
+
 ## [0.3.0](https://github.com/64andrewwalker/openvital/compare/v0.2.0...v0.3.0) (2026-02-18)
 
 
