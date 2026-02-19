@@ -80,7 +80,7 @@ pub fn compute(
             trend: TrendSummary {
                 direction: "stable".to_string(),
                 rate: 0.0,
-                rate_unit: format!("per {}", period_label(&period)),
+                rate_unit: format!("per {}", period_noun(&period)),
                 projected_30d: None,
             },
         });
