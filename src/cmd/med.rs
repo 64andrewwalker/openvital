@@ -210,7 +210,26 @@ pub fn run_status(name: Option<&str>, last: u32, human: bool) -> Result<()> {
             openvital::output::human::format_med_status(&statuses, today)
         );
     } else {
-        let out = output::success("med_status", json!(statuses));
+        let data = if name.is_some() && statuses.len() == 1 {
+            // Single medication: output directly
+            json!(statuses.into_iter().next().unwrap())
+        } else {
+            // All medications: wrap with date and overall adherence
+            let today = chrono::Utc::now().date_naive();
+            let adherence_values: Vec<f64> =
+                statuses.iter().filter_map(|s| s.adherence_7d).collect();
+            let overall = if adherence_values.is_empty() {
+                None
+            } else {
+                Some(adherence_values.iter().sum::<f64>() / adherence_values.len() as f64)
+            };
+            json!({
+                "date": today.format("%Y-%m-%d").to_string(),
+                "medications": statuses,
+                "overall_adherence_7d": overall,
+            })
+        };
+        let out = output::success("med_status", data);
         println!("{}", serde_json::to_string(&out)?);
     }
     Ok(())
