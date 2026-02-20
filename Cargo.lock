@@ -597,6 +597,7 @@ dependencies = [
  "comfy-table",
  "dirs",
  "predicates",
+ "regex",
  "rusqlite",
  "serde",
  "serde_json",

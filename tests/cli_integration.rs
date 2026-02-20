@@ -1321,7 +1321,8 @@ fn test_import_json_round_trip() {
     let json = parse_json(&assert);
     assert_eq!(json["status"], "ok");
     assert_eq!(json["command"], "import");
-    assert_eq!(json["data"]["count"], 2);
+    assert_eq!(json["data"]["metric_count"], 2);
+    assert_eq!(json["data"]["medication_count"], 0);
 }
 
 #[test]
@@ -2626,6 +2627,55 @@ fn test_config_set_unknown_key_lists_valid_keys() {
     );
 }
 
+// ─── med remove requires confirmation ────────────────────────────────────────
+
+#[test]
+fn test_med_remove_without_yes_flag_fails() {
+    let dir = TempDir::new().unwrap();
+    init_dir(&dir);
+
+    // Add a medication
+    cmd_in(&dir)
+        .args(["med", "add", "aspirin", "--freq", "daily"])
+        .assert()
+        .success();
+
+    // Remove without --yes should fail (non-interactive, no stdin confirmation)
+    cmd_in(&dir)
+        .args(["med", "remove", "aspirin"])
+        .write_stdin("")
+        .timeout(std::time::Duration::from_secs(5))
+        .assert()
+        .failure();
+}
+
+#[test]
+fn test_med_remove_with_yes_flag_succeeds() {
+    let dir = TempDir::new().unwrap();
+    init_dir(&dir);
+
+    // Add a medication
+    cmd_in(&dir)
+        .args(["med", "add", "aspirin", "--freq", "daily"])
+        .assert()
+        .success();
+
+    // Remove with --yes should succeed
+    cmd_in(&dir)
+        .args(["med", "remove", "aspirin", "--yes"])
+        .assert()
+        .success();
+
+    // Verify it's gone
+    let assert = cmd_in(&dir)
+        .args(["med", "list", "--all"])
+        .assert()
+        .success();
+    let json = parse_json(&assert);
+    let meds = json["data"]["medications"].as_array().unwrap();
+    assert!(meds.is_empty(), "medication should be removed");
+}
+
 // ─── Fix 12: show with no args shows tip in human mode ───────────────────────
 
 #[test]
@@ -2644,6 +2694,61 @@ fn test_show_no_args_human_shows_tip() {
     assert!(
         stdout.contains("Tip:"),
         "show with no type should display a tip, got: {}",
+        stdout
+    );
+}
+
+// ─── med take stopped medication shows warning ───────────────────────────────
+
+#[test]
+fn test_med_take_stopped_shows_warning() {
+    let dir = TempDir::new().unwrap();
+    init_dir(&dir);
+
+    // Add and stop a medication
+    cmd_in(&dir)
+        .args(["med", "add", "aspirin", "--freq", "daily"])
+        .assert()
+        .success();
+    cmd_in(&dir)
+        .args(["med", "stop", "aspirin"])
+        .assert()
+        .success();
+
+    // Take the stopped medication — should succeed but show warning on stderr
+    cmd_in(&dir)
+        .args(["med", "take", "aspirin"])
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("stopped"));
+}
+
+#[test]
+fn test_med_take_stopped_shows_warning_json() {
+    let dir = TempDir::new().unwrap();
+    init_dir(&dir);
+
+    // Add and stop a medication
+    cmd_in(&dir)
+        .args(["med", "add", "aspirin", "--freq", "daily"])
+        .assert()
+        .success();
+    cmd_in(&dir)
+        .args(["med", "stop", "aspirin"])
+        .assert()
+        .success();
+
+    // Take the stopped medication in JSON mode — should include warning field
+    let assert = cmd_in(&dir)
+        .args(["med", "take", "aspirin"])
+        .assert()
+        .success();
+    let stdout = String::from_utf8_lossy(&assert.get_output().stdout);
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    // Should have warning in the response
+    assert!(
+        json["data"]["warning"].is_string(),
+        "JSON output should include warning for stopped medication, got: {}",
         stdout
     );
 }

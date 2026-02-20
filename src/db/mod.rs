@@ -1,4 +1,5 @@
 mod goals;
+pub mod meds;
 mod metrics;
 mod migrate;
 

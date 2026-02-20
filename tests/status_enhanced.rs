@@ -524,6 +524,7 @@ fn test_status_human_deduplicates_logged_today() {
         },
         streaks: Streaks { logging_days: 1 },
         consecutive_pain_alerts: vec![],
+        medications: None,
     };
 
     let output = openvital::output::human::format_status(

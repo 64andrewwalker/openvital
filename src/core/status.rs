@@ -7,12 +7,24 @@ use crate::db::Database;
 use crate::models::config::{Alerts, Config};
 
 #[derive(Serialize)]
+pub struct MedicationStatus {
+    pub active_count: usize,
+    pub adherent_today: usize,
+    pub non_adherent_today: usize,
+    pub as_needed: usize,
+    pub missed: Vec<String>,
+    pub overall_adherence_7d: Option<f64>,
+}
+
+#[derive(Serialize)]
 pub struct StatusData {
     pub date: NaiveDate,
     pub profile: ProfileStatus,
     pub today: TodayStatus,
     pub streaks: Streaks,
     pub consecutive_pain_alerts: Vec<ConsecutivePainAlert>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub medications: Option<MedicationStatus>,
 }
 
 #[derive(Serialize)]
@@ -84,6 +96,52 @@ pub fn compute(db: &Database, config: &Config) -> Result<StatusData> {
     let streaks = compute_streaks(db, today)?;
     let consecutive_pain_alerts = check_consecutive_pain(db, today, &config.alerts)?;
 
+    // Compute medication status
+    let medications = match crate::core::med::adherence_status(db, None, 7) {
+        Ok(med_statuses) if !med_statuses.is_empty() => {
+            let active_count = med_statuses.len();
+            let mut adherent = 0;
+            let mut non_adherent = 0;
+            let mut as_needed_count = 0;
+            let mut missed = Vec::new();
+
+            for s in &med_statuses {
+                match s.adherent_today {
+                    Some(true) => adherent += 1,
+                    Some(false) => {
+                        non_adherent += 1;
+                        let taken = s.taken_today;
+                        if let Some(req) = s.required_today {
+                            missed.push(format!("{} ({}/{} taken)", s.name, taken, req));
+                        } else {
+                            // Weekly meds: show taken count without required
+                            missed.push(format!("{} ({} taken this week)", s.name, taken));
+                        }
+                    }
+                    None => as_needed_count += 1,
+                }
+            }
+
+            let adherence_values: Vec<f64> =
+                med_statuses.iter().filter_map(|s| s.adherence_7d).collect();
+            let overall = if adherence_values.is_empty() {
+                None
+            } else {
+                Some(adherence_values.iter().sum::<f64>() / adherence_values.len() as f64)
+            };
+
+            Some(MedicationStatus {
+                active_count,
+                adherent_today: adherent,
+                non_adherent_today: non_adherent,
+                as_needed: as_needed_count,
+                missed,
+                overall_adherence_7d: overall,
+            })
+        }
+        _ => None,
+    };
+
     Ok(StatusData {
         date: today,
         profile: ProfileStatus {
@@ -98,6 +156,7 @@ pub fn compute(db: &Database, config: &Config) -> Result<StatusData> {
         },
         streaks,
         consecutive_pain_alerts,
+        medications,
     })
 }
 

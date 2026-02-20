@@ -3,6 +3,7 @@ use chrono::{DateTime, NaiveDate, Utc};
 use serde::Deserialize;
 
 use crate::db::Database;
+use crate::models::med::Medication;
 use crate::models::metric::{Category, Metric, default_unit};
 
 /// Export metrics to CSV format.
@@ -74,6 +75,60 @@ pub fn import_json(db: &Database, json_str: &str) -> Result<usize> {
         m.tags = e.tags.unwrap_or_default();
         m.source = e.source.unwrap_or_else(|| "import".to_string());
         db.insert_metric(&m)?;
+        count += 1;
+    }
+    Ok(count)
+}
+
+/// Export metrics and medications to JSON format.
+pub fn to_json_with_medications(
+    db: &Database,
+    metric_type: Option<&str>,
+    from: Option<NaiveDate>,
+    to: Option<NaiveDate>,
+) -> Result<String> {
+    let entries = db.query_all(metric_type, from, to)?;
+    let medications = db.list_medications(true)?; // include stopped for full export
+    let combined = serde_json::json!({
+        "metrics": entries,
+        "medications": medications,
+    });
+    Ok(serde_json::to_string_pretty(&combined)?)
+}
+
+/// Import JSON with auto-detection of format (new combined or old array).
+/// Returns (metric_count, medication_count).
+pub fn import_json_auto(db: &Database, json_str: &str) -> Result<(usize, usize)> {
+    let parsed: serde_json::Value = serde_json::from_str(json_str)?;
+
+    // Check if it's an object with "metrics" and/or "medications" keys
+    if let Some(obj) = parsed.as_object()
+        && (obj.contains_key("metrics") || obj.contains_key("medications"))
+    {
+        let mut metric_count = 0;
+        let mut med_count = 0;
+
+        if let Some(metrics) = obj.get("metrics") {
+            let entries_str = serde_json::to_string(metrics)?;
+            metric_count = import_json(db, &entries_str)?;
+        }
+        if let Some(meds) = obj.get("medications") {
+            med_count = import_medications(db, meds)?;
+        }
+        return Ok((metric_count, med_count));
+    }
+
+    // Otherwise it's an array (old format) -- treat as metrics
+    let count = import_json(db, json_str)?;
+    Ok((count, 0))
+}
+
+/// Import medications from a JSON value (array of Medication objects).
+fn import_medications(db: &Database, meds_value: &serde_json::Value) -> Result<usize> {
+    let meds: Vec<Medication> = serde_json::from_value(meds_value.clone())?;
+    let mut count = 0;
+    for med in meds {
+        db.insert_medication(&med)?;
         count += 1;
     }
     Ok(count)

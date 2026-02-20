@@ -31,6 +31,7 @@ fn row_to_metric(r: MetricRow) -> Result<Metric> {
         "nutrition" => Category::Nutrition,
         "pain" => Category::Pain,
         "habit" => Category::Habit,
+        "medication" => Category::Medication,
         _ => Category::Custom,
     };
     Ok(Metric {

@@ -1,6 +1,8 @@
+use crate::core::med::MedStatus;
 use crate::core::status::StatusData;
 use crate::models::Metric;
 use crate::models::config::Units;
+use crate::models::med::Medication;
 
 /// Format a value with its unit, handling scale units like "0-10" → "7/10".
 fn format_value_with_unit(val: f64, unit: &str) -> String {
@@ -149,5 +151,138 @@ pub fn format_status(s: &StatusData, user_units: &Units) -> String {
         ));
     }
 
+    // Medications
+    if let Some(ref meds) = s.medications {
+        out.push_str(&format!("\nMedications: {} active", meds.active_count));
+        if !meds.missed.is_empty() {
+            out.push_str(&format!(" | Missed: {}", meds.missed.join(", ")));
+        }
+        if let Some(adherence) = meds.overall_adherence_7d {
+            out.push_str(&format!(" | 7d adherence: {:.0}%", adherence * 100.0));
+        }
+    }
+
     out
+}
+
+/// Format medication list for human display.
+pub fn format_med_list(meds: &[Medication], include_stopped: bool) -> String {
+    if meds.is_empty() {
+        return "No medications found.".to_string();
+    }
+
+    let header = if include_stopped {
+        "All Medications"
+    } else {
+        "Active Medications"
+    };
+    let separator = "=".repeat(header.len());
+    let mut out = format!("{}\n{}\n", header, separator);
+    for med in meds {
+        let dose_str = med.dose.as_deref().unwrap_or("");
+        let route_str = med.route.to_string();
+        let freq_display = match med.frequency.to_string().as_str() {
+            "daily" => "daily",
+            "2x_daily" => "2x daily",
+            "3x_daily" => "3x daily",
+            "weekly" => "weekly",
+            "as_needed" => "as needed",
+            _ => "unknown",
+        }
+        .to_string();
+        let since = med.started_at.format("%b %d");
+        let note_part = med
+            .note
+            .as_ref()
+            .map(|n| format!("  \"{}\"", n))
+            .unwrap_or_default();
+        let stopped_marker = if !med.active { " [STOPPED]" } else { "" };
+
+        out.push_str(&format!(
+            "  {:<14}{} {}  {:<11}since {}{}{}",
+            med.name, dose_str, route_str, freq_display, since, note_part, stopped_marker,
+        ));
+        out.push('\n');
+    }
+    out.trim_end().to_string()
+}
+
+/// Format medication take confirmation.
+pub fn format_med_take(name: &str, dose: &str, route: &str, timestamp: &str) -> String {
+    format!(
+        "Took {} {} ({})\n  Recorded at {}",
+        name, dose, route, timestamp
+    )
+}
+
+/// Format medication status overview.
+pub fn format_med_status(statuses: &[MedStatus], date: chrono::NaiveDate) -> String {
+    if statuses.is_empty() {
+        return "No active medications.".to_string();
+    }
+
+    let header = format!("Medication Adherence \u{2014} {}", date.format("%b %d, %Y"));
+    let separator = "=".repeat(header.len());
+    let mut out = format!("{}\n{}\n", header, separator);
+
+    for s in statuses {
+        let taken_display = if let Some(req) = s.required_today {
+            format!("{}/{} taken today", s.taken_today, req)
+        } else {
+            format!("{} taken today", s.taken_today)
+        };
+
+        let adherence_marker = if s.frequency == "as_needed" {
+            "(as needed)".to_string()
+        } else if let Some(true) = s.adherent_today {
+            "OK".to_string()
+        } else if let Some(false) = s.adherent_today {
+            "MISSED".to_string()
+        } else {
+            String::new()
+        };
+
+        let streak_str = s
+            .streak_days
+            .map(|d| format!("streak: {} days", d))
+            .unwrap_or_default();
+
+        let adh_7d_str = s
+            .adherence_7d
+            .map(|a| format!("7d: {:.0}%", a * 100.0))
+            .unwrap_or_default();
+
+        let parts: Vec<&str> = [
+            taken_display.as_str(),
+            adherence_marker.as_str(),
+            streak_str.as_str(),
+            adh_7d_str.as_str(),
+        ]
+        .iter()
+        .filter(|p| !p.is_empty())
+        .copied()
+        .collect();
+
+        out.push_str(&format!("  {:<14}{}\n", s.name, parts.join("    ")));
+    }
+
+    // Overall adherence (exclude as_needed)
+    let adherence_values: Vec<f64> = statuses.iter().filter_map(|s| s.adherence_7d).collect();
+    if !adherence_values.is_empty() {
+        let overall = adherence_values.iter().sum::<f64>() / adherence_values.len() as f64;
+        out.push_str(&format!(
+            "\nOverall 7-day adherence: {:.0}%",
+            overall * 100.0
+        ));
+    }
+
+    out.trim_end().to_string()
+}
+
+/// Format medication stop.
+pub fn format_med_stop(name: &str, reason: Option<&str>) -> String {
+    match reason {
+        Some(r) => format!("Stopped {}: {}", name, r),
+        None => format!("Stopped {}", name),
+    }
 }

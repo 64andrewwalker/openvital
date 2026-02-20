@@ -5,6 +5,7 @@ use std::collections::BTreeMap;
 use std::str::FromStr;
 
 use crate::db::Database;
+use crate::models::metric::Category;
 
 #[derive(Debug, Serialize)]
 pub struct CorrelationResult {
@@ -68,7 +69,26 @@ pub fn compute(
     last: Option<u32>,
 ) -> Result<TrendResult> {
     // Fetch all entries in ascending order for bucketing
-    let entries = db.query_by_type_asc(metric_type, None)?;
+    let all_entries = db.query_by_type_asc(metric_type, None)?;
+
+    // Separate medication from non-medication entries to handle name collisions.
+    // If non-medication entries exist, use those (the metric predates the medication).
+    // If only medication entries exist, use those with sum aggregation.
+    let has_non_med = all_entries
+        .iter()
+        .any(|e| e.category != Category::Medication);
+    let entries: Vec<_> = if has_non_med {
+        all_entries
+            .into_iter()
+            .filter(|e| e.category != Category::Medication)
+            .collect()
+    } else {
+        all_entries
+    };
+    let is_medication = !has_non_med
+        && entries
+            .first()
+            .is_some_and(|e| e.category == Category::Medication);
 
     let limit = last.unwrap_or(12) as usize;
 
@@ -100,7 +120,11 @@ pub fn compute(
         .map(|(label, values)| {
             let count = values.len() as u32;
             let sum: f64 = values.iter().sum();
-            let avg = sum / values.len() as f64;
+            let avg = if is_medication {
+                sum
+            } else {
+                sum / values.len() as f64
+            };
             let min = values.iter().cloned().fold(f64::INFINITY, f64::min);
             let max = values.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
             PeriodData {
@@ -223,12 +247,41 @@ pub fn correlate(
     metric_b: &str,
     last_days: Option<u32>,
 ) -> Result<CorrelationResult> {
-    let entries_a = db.query_by_type_asc(metric_a, None)?;
-    let entries_b = db.query_by_type_asc(metric_b, None)?;
+    let all_a = db.query_by_type_asc(metric_a, None)?;
+    let all_b = db.query_by_type_asc(metric_b, None)?;
 
-    // Group by date, compute daily averages
-    let avg_a = daily_averages(&entries_a);
-    let avg_b = daily_averages(&entries_b);
+    // Filter out medication entries when non-medication entries exist (name collision)
+    let has_non_med_a = all_a.iter().any(|e| e.category != Category::Medication);
+    let has_non_med_b = all_b.iter().any(|e| e.category != Category::Medication);
+    let entries_a: Vec<_> = if has_non_med_a {
+        all_a
+            .into_iter()
+            .filter(|e| e.category != Category::Medication)
+            .collect()
+    } else {
+        all_a
+    };
+    let entries_b: Vec<_> = if has_non_med_b {
+        all_b
+            .into_iter()
+            .filter(|e| e.category != Category::Medication)
+            .collect()
+    } else {
+        all_b
+    };
+
+    // Detect medication types: use sum instead of average for daily values
+    let is_med_a = !has_non_med_a
+        && entries_a
+            .first()
+            .is_some_and(|e| e.category == Category::Medication);
+    let is_med_b = entries_b
+        .first()
+        .is_some_and(|e| e.category == Category::Medication);
+
+    // Group by date, compute daily values (sum for medications, average otherwise)
+    let avg_a = daily_values(&entries_a, is_med_a);
+    let avg_b = daily_values(&entries_b, is_med_b);
 
     // Find matching dates
     let mut pairs: Vec<(f64, f64)> = Vec::new();
@@ -294,7 +347,10 @@ pub fn correlate(
     })
 }
 
-fn daily_averages(entries: &[crate::models::metric::Metric]) -> BTreeMap<NaiveDate, f64> {
+fn daily_values(
+    entries: &[crate::models::metric::Metric],
+    use_sum: bool,
+) -> BTreeMap<NaiveDate, f64> {
     let mut day_sums: BTreeMap<NaiveDate, (f64, u32)> = BTreeMap::new();
     for e in entries {
         let date = e.timestamp.date_naive();
@@ -304,6 +360,9 @@ fn daily_averages(entries: &[crate::models::metric::Metric]) -> BTreeMap<NaiveDa
     }
     day_sums
         .into_iter()
-        .map(|(date, (sum, count))| (date, sum / count as f64))
+        .map(|(date, (sum, count))| {
+            let val = if use_sum { sum } else { sum / count as f64 };
+            (date, val)
+        })
         .collect()
 }

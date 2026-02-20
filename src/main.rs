@@ -3,7 +3,7 @@ mod cmd;
 
 use anyhow::anyhow;
 use clap::Parser;
-use cli::{Cli, Commands, ConfigAction, GoalAction};
+use cli::{Cli, Commands, ConfigAction, GoalAction, MedAction};
 use std::process;
 
 fn main() {
@@ -97,15 +97,56 @@ fn main() {
             r#type,
             from,
             to,
+            with_medications,
         } => cmd::export::run_export(
             &format,
             output.as_deref(),
             r#type.as_deref(),
             from,
             to,
+            with_medications,
             cli.human,
         ),
         Commands::Import { source, file } => cmd::export::run_import(&source, &file, cli.human),
+        Commands::Med { action } => match action {
+            MedAction::Add {
+                name,
+                dose,
+                freq,
+                route,
+                note,
+                started,
+            } => cmd::med::run_add(
+                &name,
+                dose.as_deref(),
+                &freq,
+                &route,
+                note.as_deref(),
+                started,
+                cli.human,
+            ),
+            MedAction::Take {
+                name,
+                dose,
+                note,
+                tags,
+            } => cmd::med::run_take(
+                &name,
+                dose.as_deref(),
+                note.as_deref(),
+                tags.as_deref(),
+                cli.date,
+                cli.human,
+            ),
+            MedAction::List { all } => cmd::med::run_list(all, cli.human),
+            MedAction::Stop { name, reason } => {
+                cmd::med::run_stop(&name, reason.as_deref(), cli.date, cli.human)
+            }
+            MedAction::Remove { name, yes } => cmd::med::run_remove(&name, yes, cli.human),
+            MedAction::Status { name, last } => {
+                cmd::med::run_status(name.as_deref(), last, cli.human)
+            }
+        },
         Commands::Completions { shell } => {
             cli::print_completions(shell);
             Ok(())

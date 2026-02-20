@@ -263,6 +263,7 @@ fn make_status(
         },
         streaks: Streaks { logging_days },
         consecutive_pain_alerts,
+        medications: None,
     }
 }
 
