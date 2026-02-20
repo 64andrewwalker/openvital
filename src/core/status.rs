@@ -198,23 +198,35 @@ pub fn check_consecutive_pain(
         let mut consecutive = 0u32;
         let mut latest_value = 0.0f64;
 
-        for i in 0..30 {
-            // look back up to 30 days
-            let date = today - Duration::days(i);
-            let entries = db.query_by_date(date)?;
-            let day_pain: Vec<f64> = entries
-                .iter()
-                .filter(|m| m.metric_type == *pain_type && m.value >= threshold)
-                .map(|m| m.value)
-                .collect();
+        // Widen query range by 1 day on each side to capture entries where
+        // the UTC date differs from the local date (timezone offset).
+        let from = today - Duration::days(30);
+        let to = today + Duration::days(1);
+        let entries = db.query_all(Some(pain_type), Some(from), Some(to))?;
 
-            if day_pain.is_empty() {
-                break;
+        let mut has_pain = [None; 30];
+        for m in entries {
+            if m.value >= threshold {
+                let local_date = m.timestamp.with_timezone(&Local).date_naive();
+                let diff = (today - local_date).num_days();
+                if (0..30).contains(&diff) {
+                    let idx = diff as usize;
+                    let val = has_pain[idx].get_or_insert(f64::NEG_INFINITY);
+                    if m.value > *val {
+                        *val = m.value;
+                    }
+                }
             }
+        }
 
-            consecutive += 1;
-            if i == 0 {
-                latest_value = day_pain.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+        for (i, slot) in has_pain.iter().enumerate() {
+            if let Some(max_val) = slot {
+                consecutive += 1;
+                if i == 0 {
+                    latest_value = *max_val;
+                }
+            } else {
+                break;
             }
         }
 
