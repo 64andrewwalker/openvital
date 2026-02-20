@@ -77,7 +77,15 @@ pub fn run_take(
     let (metric, medication) =
         openvital::core::med::take_medication(&db, &config, name, dose, note, tags, date)?;
 
+    let is_stopped = !medication.active;
+
     if human {
+        if is_stopped {
+            eprintln!(
+                "Warning: Medication '{}' is stopped. Recording anyway.",
+                medication.name
+            );
+        }
         let dose_str = dose
             .map(String::from)
             .or(medication.dose.clone())
@@ -93,22 +101,30 @@ pub fn run_take(
             )
         );
     } else {
-        let out = output::success(
-            "med_take",
-            json!({
-                "medication": medication.name,
-                "dose": dose.map(String::from).or(medication.dose),
-                "route": medication.route,
-                "entry": {
-                    "id": metric.id,
-                    "timestamp": metric.timestamp.to_rfc3339(),
-                    "type": metric.metric_type,
-                    "value": metric.value,
-                    "unit": metric.unit,
-                    "note": metric.note,
-                }
-            }),
-        );
+        let mut data = json!({
+            "medication": medication.name,
+            "dose": dose.map(String::from).or(medication.dose),
+            "route": medication.route,
+            "entry": {
+                "id": metric.id,
+                "timestamp": metric.timestamp.to_rfc3339(),
+                "type": metric.metric_type,
+                "value": metric.value,
+                "unit": metric.unit,
+                "note": metric.note,
+            }
+        });
+        if is_stopped {
+            data["warning"] = json!(format!(
+                "Medication '{}' is stopped. Recording anyway.",
+                medication.name
+            ));
+            eprintln!(
+                "Warning: Medication '{}' is stopped. Recording anyway.",
+                medication.name
+            );
+        }
+        let out = output::success("med_take", data);
         println!("{}", serde_json::to_string(&out)?);
     }
     Ok(())
@@ -170,10 +186,24 @@ pub fn run_stop(
     Ok(())
 }
 
-pub fn run_remove(name: &str, human: bool) -> Result<()> {
+pub fn run_remove(name: &str, yes: bool, human: bool) -> Result<()> {
     let config = Config::load()?;
     let resolved = config.resolve_alias(name);
     let db = Database::open(&Config::db_path())?;
+
+    if !yes {
+        eprint!(
+            "Permanently delete medication '{}'? Metric history will be preserved. [y/N] ",
+            resolved
+        );
+        use std::io::{self, BufRead, Write};
+        io::stderr().flush().ok();
+        let mut buf = String::new();
+        let bytes = io::stdin().lock().read_line(&mut buf)?;
+        if bytes == 0 || !buf.trim().eq_ignore_ascii_case("y") {
+            anyhow::bail!("Aborted.");
+        }
+    }
 
     let removed = openvital::core::med::remove_medication(&db, &resolved)?;
 

@@ -294,6 +294,9 @@ pub enum MedAction {
     Remove {
         /// Medication name
         name: String,
+        /// Skip confirmation prompt
+        #[arg(long, short = 'y')]
+        yes: bool,
     },
     /// View adherence status
     Status {

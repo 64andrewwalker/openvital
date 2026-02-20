@@ -142,7 +142,7 @@ fn main() {
             MedAction::Stop { name, reason } => {
                 cmd::med::run_stop(&name, reason.as_deref(), cli.date, cli.human)
             }
-            MedAction::Remove { name } => cmd::med::run_remove(&name, cli.human),
+            MedAction::Remove { name, yes } => cmd::med::run_remove(&name, yes, cli.human),
             MedAction::Status { name, last } => {
                 cmd::med::run_status(name.as_deref(), last, cli.human)
             }
