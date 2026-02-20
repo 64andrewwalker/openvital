@@ -549,3 +549,38 @@ fn test_status_human_deduplicates_logged_today() {
     // Should NOT contain the raw comma-separated duplicate list
     assert!(!output.contains("water, water, water"));
 }
+
+/// Scenario: Pain entries stored at various UTC times should be bucketed by
+/// their local date, not their UTC date. This ensures the N+1 optimization
+/// produces the same results as the original per-day query approach.
+#[test]
+fn test_pain_consecutive_uses_local_date_bucketing() {
+    use chrono::{Local, TimeZone};
+
+    let (_dir, db) = common::setup_db();
+    let today = chrono::Local::now().date_naive();
+
+    // Create pain entries for 3 consecutive local days using Local timezone.
+    // This simulates real usage where Metric::new() calls Utc::now().
+    for i in 0..3i64 {
+        let date = today - chrono::Duration::days(i);
+        let local_noon = date.and_hms_opt(12, 0, 0).unwrap();
+        let ts = Local
+            .from_local_datetime(&local_noon)
+            .single()
+            .unwrap()
+            .with_timezone(&chrono::Utc);
+        let mut m = openvital::models::metric::Metric::new("pain".to_string(), 7.0);
+        m.timestamp = ts;
+        db.insert_metric(&m).unwrap();
+    }
+
+    let config = Config::default();
+    let alerts =
+        openvital::core::status::check_consecutive_pain(&db, today, &config.alerts).unwrap();
+    assert!(
+        !alerts.is_empty(),
+        "Pain entries at local noon for 3 consecutive days should trigger alert"
+    );
+    assert_eq!(alerts[0].consecutive_days, 3);
+}

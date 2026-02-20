@@ -198,14 +198,18 @@ pub fn check_consecutive_pain(
         let mut consecutive = 0u32;
         let mut latest_value = 0.0f64;
 
-        let from = today - Duration::days(29);
-        let entries = db.query_all(Some(pain_type), Some(from), Some(today))?;
+        // Widen query range by 1 day on each side to capture entries where
+        // the UTC date differs from the local date (timezone offset).
+        let from = today - Duration::days(30);
+        let to = today + Duration::days(1);
+        let entries = db.query_all(Some(pain_type), Some(from), Some(to))?;
 
         let mut has_pain = [None; 30];
         for m in entries {
             if m.value >= threshold {
-                let diff = (today - m.timestamp.date_naive()).num_days();
-                if diff >= 0 && diff < 30 {
+                let local_date = m.timestamp.with_timezone(&Local).date_naive();
+                let diff = (today - local_date).num_days();
+                if (0..30).contains(&diff) {
                     let idx = diff as usize;
                     let val = has_pain[idx].get_or_insert(f64::NEG_INFINITY);
                     if m.value > *val {
@@ -215,11 +219,11 @@ pub fn check_consecutive_pain(
             }
         }
 
-        for i in 0..30 {
-            if let Some(max_val) = has_pain[i] {
+        for (i, slot) in has_pain.iter().enumerate() {
+            if let Some(max_val) = slot {
                 consecutive += 1;
                 if i == 0 {
-                    latest_value = max_val;
+                    latest_value = *max_val;
                 }
             } else {
                 break;
