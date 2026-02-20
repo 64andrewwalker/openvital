@@ -85,7 +85,6 @@ Metric {
 | pain | soreness | 0-10 | General body soreness |
 | habit | standing_breaks | count | Standing/stretching breaks taken |
 | habit | screen_time | hours | Total screen time |
-| medication | *varies* | dose | Medication intakes (value=1, dose in note) |
 
 Users can define custom types at any time. The tool does not reject unknown types.
 
@@ -108,30 +107,6 @@ Example goals:
 - cardio above 150min (weekly)
 - water above 2000ml (daily)
 - pain below 3 (daily)
-
-### 3.4 Medication Management
-
-Medications are managed as structured metadata alongside metric entries.
-
-```
-Medication {
-  id:         UUID
-  name:       string (unique when active)
-  dose:       string (e.g., "400mg", "5ml")
-  route:      enum (oral, topical, injection, etc.)
-  frequency:  enum (daily, 2x_daily, weekly, as_needed)
-  active:     bool
-  started_at: ISO 8601
-  note:       string (optional)
-}
-```
-
-When a medication is taken via `med take`, a metric entry is created with:
-- `category`: `medication`
-- `type`: medication name
-- `value`: `1.0` (count)
-- `unit`: `dose`
-- `note`: Contains the specific dose text (e.g., "400mg")
 
 ---
 
@@ -258,30 +233,6 @@ openvital goal status weight
 
 # Remove a goal
 openvital goal remove <goal_id>
-```
-
-#### `openvital med <subcommand>`
-
-Manage medications and adherence.
-
-```bash
-# Add a medication
-openvital med add ibuprofen --dose "400mg" --freq as_needed
-openvital med add metformin --dose "500mg" --freq 2x_daily
-
-# Record a dose (logs metric with value=1)
-openvital med take ibuprofen
-openvital med take metformin --note "after breakfast"
-
-# List active medications
-openvital med list
-
-# Check adherence status
-openvital med status
-
-# Stop or remove
-openvital med stop metformin --reason "doctor's orders"
-openvital med remove ibuprofen
 ```
 
 #### `openvital status`
@@ -683,7 +634,6 @@ p = "pain"
 so = "soreness"
 cal = "calories_in"
 st = "screen_time"
-# ibu = "ibuprofen"
 
 [goals]
 weight = { target = 75, direction = "below", timeframe = "monthly" }
