@@ -235,6 +235,27 @@ openvital goal status weight
 openvital goal remove <goal_id>
 ```
 
+#### `openvital med <subcommand>`
+
+Manage medications and adherence.
+
+```bash
+# Add a medication
+openvital med add ibuprofen --dose 400mg --freq as_needed --route oral
+
+# Record a dose
+openvital med take ibuprofen
+
+# List medications
+openvital med list
+
+# Stop a medication
+openvital med stop ibuprofen --reason "No longer needed"
+
+# Check adherence status
+openvital med status
+```
+
 #### `openvital status`
 
 Quick overview — the primary command an agent will call to assess current state.
@@ -324,6 +345,9 @@ Export data for backup or analysis.
 openvital export --format csv --output health_data.csv
 openvital export --format json --output health_data.json
 openvital export --format csv --type weight --from 2026-01-01
+
+# Include medications in export
+openvital export --with-medications
 ```
 
 #### `openvital import [flags]`
@@ -635,16 +659,7 @@ so = "soreness"
 cal = "calories_in"
 st = "screen_time"
 
-[goals]
-weight = { target = 75, direction = "below", timeframe = "monthly" }
-cardio = { target = 150, direction = "above", timeframe = "weekly" }
-water = { target = 2000, direction = "above", timeframe = "daily" }
-
 [alerts]
 pain_threshold = 5
 pain_consecutive_days = 3
-
-[agent]
-default_source = "manual"
-status_include_streaks = true
 ```

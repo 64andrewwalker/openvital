@@ -56,6 +56,7 @@ openvital goal set water --target 2000 --direction above --timeframe daily
 | `report` | Period reports (week/month/custom) |
 | `export` | Export to CSV/JSON |
 | `import` | Import from CSV/JSON |
+| `med add/take/list...` | Medication management |
 | `config show/set` | Configuration management |
 | `completions <shell>` | Shell completions (bash/zsh/fish) |
 
