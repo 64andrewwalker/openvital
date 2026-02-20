@@ -69,12 +69,26 @@ pub fn compute(
     last: Option<u32>,
 ) -> Result<TrendResult> {
     // Fetch all entries in ascending order for bucketing
-    let entries = db.query_by_type_asc(metric_type, None)?;
+    let all_entries = db.query_by_type_asc(metric_type, None)?;
 
-    // Detect medication type: use sum aggregation instead of average
-    let is_medication = entries
-        .first()
-        .is_some_and(|e| e.category == Category::Medication);
+    // Separate medication from non-medication entries to handle name collisions.
+    // If non-medication entries exist, use those (the metric predates the medication).
+    // If only medication entries exist, use those with sum aggregation.
+    let has_non_med = all_entries
+        .iter()
+        .any(|e| e.category != Category::Medication);
+    let entries: Vec<_> = if has_non_med {
+        all_entries
+            .into_iter()
+            .filter(|e| e.category != Category::Medication)
+            .collect()
+    } else {
+        all_entries
+    };
+    let is_medication = !has_non_med
+        && entries
+            .first()
+            .is_some_and(|e| e.category == Category::Medication);
 
     let limit = last.unwrap_or(12) as usize;
 
@@ -233,13 +247,34 @@ pub fn correlate(
     metric_b: &str,
     last_days: Option<u32>,
 ) -> Result<CorrelationResult> {
-    let entries_a = db.query_by_type_asc(metric_a, None)?;
-    let entries_b = db.query_by_type_asc(metric_b, None)?;
+    let all_a = db.query_by_type_asc(metric_a, None)?;
+    let all_b = db.query_by_type_asc(metric_b, None)?;
+
+    // Filter out medication entries when non-medication entries exist (name collision)
+    let has_non_med_a = all_a.iter().any(|e| e.category != Category::Medication);
+    let has_non_med_b = all_b.iter().any(|e| e.category != Category::Medication);
+    let entries_a: Vec<_> = if has_non_med_a {
+        all_a
+            .into_iter()
+            .filter(|e| e.category != Category::Medication)
+            .collect()
+    } else {
+        all_a
+    };
+    let entries_b: Vec<_> = if has_non_med_b {
+        all_b
+            .into_iter()
+            .filter(|e| e.category != Category::Medication)
+            .collect()
+    } else {
+        all_b
+    };
 
     // Detect medication types: use sum instead of average for daily values
-    let is_med_a = entries_a
-        .first()
-        .is_some_and(|e| e.category == Category::Medication);
+    let is_med_a = !has_non_med_a
+        && entries_a
+            .first()
+            .is_some_and(|e| e.category == Category::Medication);
     let is_med_b = entries_b
         .first()
         .is_some_and(|e| e.category == Category::Medication);

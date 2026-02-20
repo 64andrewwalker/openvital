@@ -166,12 +166,18 @@ pub fn format_status(s: &StatusData, user_units: &Units) -> String {
 }
 
 /// Format medication list for human display.
-pub fn format_med_list(meds: &[Medication], _include_stopped: bool) -> String {
+pub fn format_med_list(meds: &[Medication], include_stopped: bool) -> String {
     if meds.is_empty() {
         return "No medications found.".to_string();
     }
 
-    let mut out = String::from("Active Medications\n==================\n");
+    let header = if include_stopped {
+        "All Medications"
+    } else {
+        "Active Medications"
+    };
+    let separator = "=".repeat(header.len());
+    let mut out = format!("{}\n{}\n", header, separator);
     for med in meds {
         let dose_str = med.dose.as_deref().unwrap_or("");
         let route_str = med.route.to_string();

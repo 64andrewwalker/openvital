@@ -111,8 +111,12 @@ pub fn compute(db: &Database, config: &Config) -> Result<StatusData> {
                     Some(false) => {
                         non_adherent += 1;
                         let taken = s.taken_today;
-                        let req = s.required_today.unwrap_or(0);
-                        missed.push(format!("{} ({}/{} taken)", s.name, taken, req));
+                        if let Some(req) = s.required_today {
+                            missed.push(format!("{} ({}/{} taken)", s.name, taken, req));
+                        } else {
+                            // Weekly meds: show taken count without required
+                            missed.push(format!("{} ({} taken this week)", s.name, taken));
+                        }
                     }
                     None => as_needed_count += 1,
                 }

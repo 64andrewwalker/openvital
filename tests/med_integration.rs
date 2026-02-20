@@ -460,3 +460,448 @@ fn correlate_medication_uses_daily_sum() {
     assert_ne!(result.interpretation, "insufficient data");
     // Just verify it computed without error - the specific coefficient depends on pain values
 }
+
+// ===========================================================================
+// Bug 1: Name collision between medication and non-medication metrics
+// ===========================================================================
+
+// ---------------------------------------------------------------------------
+// 10. trend_excludes_medication_entries_for_non_med_metric
+// ---------------------------------------------------------------------------
+
+#[test]
+fn trend_excludes_medication_entries_for_non_med_metric() {
+    let (_dir, db) = common::setup_db();
+    let config = default_config();
+
+    // Log mood=4 as a regular (non-medication) metric
+    let entry = openvital::core::logging::LogEntry {
+        metric_type: "mood",
+        value: 4.0,
+        note: None,
+        tags: None,
+        source: None,
+        date: None,
+    };
+    openvital::core::logging::log_metric(&db, &config, entry).unwrap();
+
+    // Add a medication also named "mood"
+    med::add_medication(
+        &db,
+        &config,
+        AddMedicationParams {
+            name: "mood",
+            dose: Some("10mg"),
+            freq: "2x_daily",
+            route: None,
+            note: None,
+            started: None,
+        },
+    )
+    .unwrap();
+
+    // Take the "mood" medication twice (creates entries with value=1.0, Category::Medication)
+    med::take_medication(&db, &config, "mood", None, None, None, None).unwrap();
+    med::take_medication(&db, &config, "mood", None, None, None, None).unwrap();
+
+    // Run trend for "mood" — should only see the non-medication entry
+    let result = trend::compute(&db, "mood", TrendPeriod::Daily, Some(7)).unwrap();
+    assert_eq!(result.data.len(), 1, "Should have exactly 1 day of data");
+
+    let day = &result.data[0];
+    assert!(
+        (day.avg - 4.0).abs() < f64::EPSILON,
+        "Trend avg should be 4.0 (non-med only), got {}",
+        day.avg
+    );
+}
+
+// ---------------------------------------------------------------------------
+// 11. goal_excludes_medication_entries_for_non_med_metric
+// ---------------------------------------------------------------------------
+
+#[test]
+fn goal_excludes_medication_entries_for_non_med_metric() {
+    let (_dir, db) = common::setup_db();
+    let config = default_config();
+
+    // Log mood=4 as a regular metric
+    let entry = openvital::core::logging::LogEntry {
+        metric_type: "mood",
+        value: 4.0,
+        note: None,
+        tags: None,
+        source: None,
+        date: None,
+    };
+    openvital::core::logging::log_metric(&db, &config, entry).unwrap();
+
+    // Add medication named "mood" and take it twice
+    med::add_medication(
+        &db,
+        &config,
+        AddMedicationParams {
+            name: "mood",
+            dose: Some("10mg"),
+            freq: "2x_daily",
+            route: None,
+            note: None,
+            started: None,
+        },
+    )
+    .unwrap();
+    med::take_medication(&db, &config, "mood", None, None, None, None).unwrap();
+    med::take_medication(&db, &config, "mood", None, None, None, None).unwrap();
+
+    // Set goal: mood above 3 daily
+    goal::set_goal(
+        &db,
+        "mood".to_string(),
+        3.0,
+        Direction::Above,
+        Timeframe::Daily,
+    )
+    .unwrap();
+
+    let statuses = goal::goal_status(&db, Some("mood")).unwrap();
+    assert_eq!(statuses.len(), 1);
+    let s = &statuses[0];
+    // current_value should be 4.0 (the non-med entry), NOT 6.0 (4+1+1)
+    assert_eq!(
+        s.current_value,
+        Some(4.0),
+        "Goal should use non-med mood entry (4.0), not mixed with med entries"
+    );
+    assert!(s.is_met, "Goal should be met: 4.0 > 3.0");
+}
+
+// ---------------------------------------------------------------------------
+// 12. goal_for_medication_excludes_non_med_entries
+// ---------------------------------------------------------------------------
+
+#[test]
+fn goal_for_medication_excludes_non_med_entries() {
+    let (_dir, db) = common::setup_db();
+    let config = default_config();
+
+    // Log mood=4 as a regular metric first
+    let entry = openvital::core::logging::LogEntry {
+        metric_type: "mood",
+        value: 4.0,
+        note: None,
+        tags: None,
+        source: None,
+        date: None,
+    };
+    openvital::core::logging::log_metric(&db, &config, entry).unwrap();
+
+    // Add medication named "mood" and take it twice
+    med::add_medication(
+        &db,
+        &config,
+        AddMedicationParams {
+            name: "mood",
+            dose: Some("10mg"),
+            freq: "2x_daily",
+            route: None,
+            note: None,
+            started: None,
+        },
+    )
+    .unwrap();
+    med::take_medication(&db, &config, "mood", None, None, None, None).unwrap();
+    med::take_medication(&db, &config, "mood", None, None, None, None).unwrap();
+
+    // Set goal for mood above 3 daily — since non-med entries exist,
+    // the goal will be treated as non-med, so current_value = 4.0
+    goal::set_goal(
+        &db,
+        "mood".to_string(),
+        3.0,
+        Direction::Above,
+        Timeframe::Daily,
+    )
+    .unwrap();
+
+    let statuses = goal::goal_status(&db, Some("mood")).unwrap();
+    assert_eq!(statuses.len(), 1);
+    assert_eq!(
+        statuses[0].current_value,
+        Some(4.0),
+        "With both med and non-med entries, goal uses non-med value (4.0)"
+    );
+}
+
+// ===========================================================================
+// Bug 2: Weekly adherence consistency
+// ===========================================================================
+
+// ---------------------------------------------------------------------------
+// 13. weekly_med_no_takes_shows_not_adherent
+// ---------------------------------------------------------------------------
+
+#[test]
+fn weekly_med_no_takes_shows_not_adherent() {
+    let (_dir, db) = common::setup_db();
+    let config = default_config();
+
+    // Add weekly medication started a few days ago
+    let started = Utc::now().date_naive() - chrono::Duration::days(3);
+    med::add_medication(
+        &db,
+        &config,
+        AddMedicationParams {
+            name: "weekly_vitamin",
+            dose: Some("5000iu"),
+            freq: "weekly",
+            route: None,
+            note: None,
+            started: Some(started),
+        },
+    )
+    .unwrap();
+
+    // No takes at all — check adherence
+    let statuses = med::adherence_status(&db, Some("weekly_vitamin"), 7).unwrap();
+    assert_eq!(statuses.len(), 1);
+    let s = &statuses[0];
+
+    assert_eq!(
+        s.adherent_today,
+        Some(false),
+        "Weekly med with no takes should be NOT adherent, got {:?}",
+        s.adherent_today
+    );
+    assert_eq!(
+        s.adherence_7d,
+        Some(0.0),
+        "Weekly med with 0 takes should have 0% 7d adherence, got {:?}",
+        s.adherence_7d
+    );
+}
+
+// ---------------------------------------------------------------------------
+// 14. weekly_med_one_take_shows_adherent
+// ---------------------------------------------------------------------------
+
+#[test]
+fn weekly_med_one_take_shows_adherent() {
+    let (_dir, db) = common::setup_db();
+    let config = default_config();
+
+    // Add weekly medication
+    med::add_medication(
+        &db,
+        &config,
+        AddMedicationParams {
+            name: "weekly_iron",
+            dose: Some("65mg"),
+            freq: "weekly",
+            route: None,
+            note: None,
+            started: None,
+        },
+    )
+    .unwrap();
+
+    // Take it once today
+    med::take_medication(&db, &config, "weekly_iron", None, None, None, None).unwrap();
+
+    // Check adherence
+    let statuses = med::adherence_status(&db, Some("weekly_iron"), 7).unwrap();
+    assert_eq!(statuses.len(), 1);
+    let s = &statuses[0];
+
+    assert_eq!(
+        s.adherent_today,
+        Some(true),
+        "Weekly med with 1 take this week should be adherent"
+    );
+    assert_eq!(
+        s.streak_days,
+        Some(1),
+        "Weekly med with 1 take should have streak of 1 (one week)"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// 15. weekly_adherence_history_uses_weekly_entries
+// ---------------------------------------------------------------------------
+
+#[test]
+fn weekly_adherence_history_uses_weekly_entries() {
+    let (_dir, db) = common::setup_db();
+    let config = default_config();
+
+    // Add weekly medication started 3 weeks ago
+    let started = Utc::now().date_naive() - chrono::Duration::days(21);
+    med::add_medication(
+        &db,
+        &config,
+        AddMedicationParams {
+            name: "weekly_b12",
+            dose: Some("1000mcg"),
+            freq: "weekly",
+            route: None,
+            note: None,
+            started: Some(started),
+        },
+    )
+    .unwrap();
+
+    // Take it once today
+    med::take_medication(&db, &config, "weekly_b12", None, None, None, None).unwrap();
+
+    // Check single-med adherence with last=14 days
+    let statuses = med::adherence_status(&db, Some("weekly_b12"), 14).unwrap();
+    assert_eq!(statuses.len(), 1);
+    let s = &statuses[0];
+
+    let history = s.adherence_history.as_ref().expect("Should have history");
+
+    // History entries should have required=1 for weekly meds
+    for entry in history {
+        assert_eq!(
+            entry.required, 1,
+            "Weekly history entries should have required=1, got {}",
+            entry.required
+        );
+    }
+
+    // Should NOT have 14 daily entries — should have weekly entries instead
+    // 14 days = 2 weeks, so at most 2-3 weekly entries (depending on start date)
+    assert!(
+        history.len() <= 4,
+        "Weekly history should have weekly entries (got {} entries, expected <= 4 for ~14 days)",
+        history.len()
+    );
+}
+
+// ===========================================================================
+// Bug 3: Status missed formatting for weekly meds
+// ===========================================================================
+
+// ---------------------------------------------------------------------------
+// 16. status_weekly_missed_format_no_zero_slash_zero
+// ---------------------------------------------------------------------------
+
+#[test]
+fn status_weekly_missed_format_no_zero_slash_zero() {
+    let (_dir, db) = common::setup_db();
+    let config = default_config();
+
+    // Add weekly medication, no takes
+    let started = Utc::now().date_naive() - chrono::Duration::days(3);
+    med::add_medication(
+        &db,
+        &config,
+        AddMedicationParams {
+            name: "weekly_test",
+            dose: Some("100mg"),
+            freq: "weekly",
+            route: None,
+            note: None,
+            started: Some(started),
+        },
+    )
+    .unwrap();
+
+    // Compute status
+    let status_data = status::compute(&db, &config).unwrap();
+    let meds = status_data
+        .medications
+        .expect("Should have medication status");
+
+    // The missed list should exist and contain our weekly med
+    assert!(
+        !meds.missed.is_empty(),
+        "Missed list should contain the weekly med with no takes"
+    );
+
+    // Verify the missed entry does NOT contain "0/0" pattern
+    for entry in &meds.missed {
+        assert!(
+            !entry.contains("0/0"),
+            "Missed entry should not contain '0/0', got: {}",
+            entry
+        );
+    }
+
+    // Verify the missed entry uses "taken this week" format for weekly meds
+    let weekly_entry = meds
+        .missed
+        .iter()
+        .find(|e| e.contains("weekly_test"))
+        .expect("Should have weekly_test in missed list");
+    assert!(
+        weekly_entry.contains("taken this week"),
+        "Weekly missed entry should say 'taken this week', got: {}",
+        weekly_entry
+    );
+}
+
+// ===========================================================================
+// Bug 4: Med list --all header
+// ===========================================================================
+
+// ---------------------------------------------------------------------------
+// 17. med_list_all_header
+// ---------------------------------------------------------------------------
+
+#[test]
+fn med_list_all_header() {
+    use openvital::output::human::format_med_list;
+
+    let (_dir, db) = common::setup_db();
+    let config = default_config();
+
+    // Create two medications
+    med::add_medication(
+        &db,
+        &config,
+        AddMedicationParams {
+            name: "active_med",
+            dose: Some("50mg"),
+            freq: "daily",
+            route: None,
+            note: None,
+            started: None,
+        },
+    )
+    .unwrap();
+
+    med::add_medication(
+        &db,
+        &config,
+        AddMedicationParams {
+            name: "stopped_med",
+            dose: Some("25mg"),
+            freq: "daily",
+            route: None,
+            note: None,
+            started: None,
+        },
+    )
+    .unwrap();
+
+    // Stop one medication
+    med::stop_medication(&db, "stopped_med", Some("no longer needed"), None).unwrap();
+
+    // Format with include_stopped=true → should show "All Medications"
+    let all_meds = db.list_medications(true).unwrap();
+    let output_all = format_med_list(&all_meds, true);
+    assert!(
+        output_all.starts_with("All Medications"),
+        "include_stopped=true should show 'All Medications' header, got: {}",
+        output_all.lines().next().unwrap_or("")
+    );
+
+    // Format with include_stopped=false → should show "Active Medications"
+    let active_meds = db.list_medications(false).unwrap();
+    let output_active = format_med_list(&active_meds, false);
+    assert!(
+        output_active.starts_with("Active Medications"),
+        "include_stopped=false should show 'Active Medications' header, got: {}",
+        output_active.lines().next().unwrap_or("")
+    );
+}

@@ -71,19 +71,34 @@ pub fn goal_status(db: &Database, metric_type: Option<&str>) -> Result<Vec<GoalS
     Ok(results)
 }
 
-/// Check if a metric type is a medication by looking at stored entries.
+/// Check if a metric type is exclusively a medication (no non-medication entries).
+/// Returns false if non-medication entries exist for this type (name collision).
 fn is_medication_type(db: &Database, metric_type: &str) -> Result<bool> {
     use crate::models::metric::Category;
-    let entries = db.query_by_type(metric_type, Some(1))?;
-    Ok(entries
-        .first()
-        .is_some_and(|e| e.category == Category::Medication))
+    let entries = db.query_by_type(metric_type, Some(20))?;
+    if entries.is_empty() {
+        return Ok(false);
+    }
+    // If any non-medication entry exists, this is a regular metric type
+    let has_non_med = entries.iter().any(|e| e.category != Category::Medication);
+    Ok(!has_non_med)
 }
 
 /// Compute the current value for a goal based on its timeframe.
 fn compute_current(db: &Database, goal: &Goal, today: NaiveDate) -> Result<Option<f64>> {
-    use crate::models::metric::is_cumulative;
-    let cumulative = is_cumulative(&goal.metric_type) || is_medication_type(db, &goal.metric_type)?;
+    use crate::models::metric::{Category, is_cumulative};
+    let is_med = is_medication_type(db, &goal.metric_type)?;
+    let cumulative = is_cumulative(&goal.metric_type) || is_med;
+
+    // Filter predicate: exclude medication entries when non-medication entries exist
+    // (name collision), or exclude non-medication entries when this is a medication goal.
+    let category_filter = |m: &&crate::models::Metric| -> bool {
+        if is_med {
+            m.category == Category::Medication
+        } else {
+            m.category != Category::Medication
+        }
+    };
 
     match goal.timeframe {
         Timeframe::Daily => {
@@ -91,6 +106,7 @@ fn compute_current(db: &Database, goal: &Goal, today: NaiveDate) -> Result<Optio
             let day_entries: Vec<_> = entries
                 .iter()
                 .filter(|m| m.metric_type == goal.metric_type)
+                .filter(category_filter)
                 .collect();
             if day_entries.is_empty() {
                 return Ok(None);
@@ -112,7 +128,7 @@ fn compute_current(db: &Database, goal: &Goal, today: NaiveDate) -> Result<Optio
                 }
                 let entries = db.query_by_date(date)?;
                 for m in &entries {
-                    if m.metric_type == goal.metric_type {
+                    if m.metric_type == goal.metric_type && category_filter(&m) {
                         values.push(m.value);
                     }
                 }
@@ -131,6 +147,7 @@ fn compute_current(db: &Database, goal: &Goal, today: NaiveDate) -> Result<Optio
             let month_entries: Vec<_> = entries
                 .iter()
                 .filter(|m| m.metric_type == goal.metric_type)
+                .filter(category_filter)
                 .collect();
             if month_entries.is_empty() {
                 Ok(None)

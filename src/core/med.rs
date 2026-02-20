@@ -357,29 +357,59 @@ pub fn adherence_status(
             // History (only for single med)
             let history = if single_med {
                 let mut days = Vec::new();
-                for i in 0..last_days {
-                    let day = today - chrono::Duration::days(i as i64);
-                    if day < started_date {
-                        break;
+                if is_weekly {
+                    // Show weekly history entries
+                    let weekday = today.weekday().num_days_from_monday();
+                    let current_week_start = today - chrono::Duration::days(weekday as i64);
+                    let weeks = last_days.div_ceil(7);
+                    for i in 0..weeks {
+                        let ws = current_week_start - chrono::Duration::days(i as i64 * 7);
+                        let we = ws + chrono::Duration::days(6);
+                        if we < started_date {
+                            break;
+                        }
+                        if let Some(sd) = stopped_date
+                            && ws > sd
+                        {
+                            continue;
+                        }
+                        let entries = db.query_by_date_range(ws, we)?;
+                        let taken = entries
+                            .iter()
+                            .filter(|m| m.metric_type == med.name && m.source == "med_take")
+                            .count() as u32;
+                        days.push(DayAdherence {
+                            date: ws,
+                            required: 1,
+                            taken,
+                            adherent: taken >= 1,
+                        });
                     }
-                    if let Some(sd) = stopped_date
-                        && day > sd
-                    {
-                        continue;
+                } else {
+                    for i in 0..last_days {
+                        let day = today - chrono::Duration::days(i as i64);
+                        if day < started_date {
+                            break;
+                        }
+                        if let Some(sd) = stopped_date
+                            && day > sd
+                        {
+                            continue;
+                        }
+                        let required = day_required(&med.frequency);
+                        let day_entries = db.query_by_date(day)?;
+                        let taken = day_entries
+                            .iter()
+                            .filter(|m| m.metric_type == med.name && m.source == "med_take")
+                            .count() as u32;
+                        let adherent = taken >= required;
+                        days.push(DayAdherence {
+                            date: day,
+                            required,
+                            taken,
+                            adherent,
+                        });
                     }
-                    let required = day_required(&med.frequency, db, &med.name, day)?;
-                    let day_entries = db.query_by_date(day)?;
-                    let taken = day_entries
-                        .iter()
-                        .filter(|m| m.metric_type == med.name && m.source == "med_take")
-                        .count() as u32;
-                    let adherent = taken >= required;
-                    days.push(DayAdherence {
-                        date: day,
-                        required,
-                        taken,
-                        adherent,
-                    });
                 }
                 Some(days)
             } else {
@@ -418,18 +448,6 @@ fn check_day_adherent(
     day: NaiveDate,
     frequency: &Frequency,
 ) -> Result<bool> {
-    if *frequency == Frequency::Weekly {
-        let weekday = day.weekday().num_days_from_monday();
-        let week_start = day - chrono::Duration::days(weekday as i64);
-        let week_end = week_start + chrono::Duration::days(6);
-        let entries = db.query_by_date_range(week_start, week_end)?;
-        let taken = entries
-            .iter()
-            .filter(|m| m.metric_type == med_name && m.source == "med_take")
-            .count();
-        return Ok(taken >= 1);
-    }
-
     let required = frequency.required_per_day().unwrap_or(1);
     let entries = db.query_by_date(day)?;
     let taken = entries
@@ -439,30 +457,29 @@ fn check_day_adherent(
     Ok(taken >= required)
 }
 
-/// Compute required doses for a day depending on frequency.
-fn day_required(
-    frequency: &Frequency,
+/// Check if a given week is adherent for a weekly medication.
+fn check_week_adherent(
     db: &Database,
     med_name: &str,
-    day: NaiveDate,
-) -> Result<u32> {
-    if *frequency == Frequency::Weekly {
-        let weekday = day.weekday().num_days_from_monday();
-        let week_start = day - chrono::Duration::days(weekday as i64);
-        let entries = db.query_by_date_range(week_start, day)?;
-        let taken = entries
-            .iter()
-            .filter(|m| m.metric_type == med_name && m.source == "med_take")
-            .count() as u32;
-        if taken >= 1 || weekday == 6 {
-            return Ok(1);
-        }
-        return Ok(0);
-    }
-    Ok(frequency.required_per_day().unwrap_or(1))
+    week_start: NaiveDate,
+    week_end: NaiveDate,
+) -> Result<bool> {
+    let entries = db.query_by_date_range(week_start, week_end)?;
+    let taken = entries
+        .iter()
+        .filter(|m| m.metric_type == med_name && m.source == "med_take")
+        .count();
+    Ok(taken >= 1)
 }
 
-/// Compute adherence percentage over a window of days.
+/// Compute required doses for a day depending on frequency.
+/// For weekly meds, returns 1 per day (used in daily history display).
+fn day_required(frequency: &Frequency) -> u32 {
+    frequency.required_per_day().unwrap_or(1)
+}
+
+/// Compute adherence percentage over a window.
+/// For weekly meds, iterates by week. For others, by day.
 fn compute_adherence_window(
     db: &Database,
     med_name: &str,
@@ -474,6 +491,35 @@ fn compute_adherence_window(
 ) -> Result<Option<f64>> {
     let mut eligible = 0u32;
     let mut adherent_count = 0u32;
+
+    if *frequency == Frequency::Weekly {
+        // Iterate by week for weekly meds
+        let weekday = today.weekday().num_days_from_monday();
+        let current_week_start = today - chrono::Duration::days(weekday as i64);
+        let weeks = window.div_ceil(7); // Convert day window to weeks
+        for i in 0..weeks {
+            let week_start = current_week_start - chrono::Duration::days(i as i64 * 7);
+            let week_end = week_start + chrono::Duration::days(6);
+            if week_end < started_date {
+                continue;
+            }
+            if let Some(sd) = stopped_date
+                && week_start > sd
+            {
+                continue;
+            }
+            eligible += 1;
+            if check_week_adherent(db, med_name, week_start, week_end)? {
+                adherent_count += 1;
+            }
+        }
+
+        return if eligible == 0 {
+            Ok(None)
+        } else {
+            Ok(Some(f64::from(adherent_count) / f64::from(eligible)))
+        };
+    }
 
     for i in 0..window {
         let day = today - chrono::Duration::days(i as i64);
