@@ -26,7 +26,7 @@ concurrency:
 
 env:
   JULES_API_URL: https://jules.googleapis.com/v1alpha
-  JULES_SOURCE: sources/github/punkpeye/openvital
+  JULES_SOURCE: sources/github/64andrewwalker/openvital
 
 jobs:
   bug-hunter:
@@ -43,6 +43,15 @@ jobs:
             .github/jules-prompts/bug-hunter.txt \
             "[jules-bug] Scheduled bug hunt" \
             "master"
+      - name: Create jules-error issue on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue create \
+            --title "[jules-error] bug-hunter failed" \
+            --body "The bug-hunter scheduled task failed. [View run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})" \
+            --label "jules-error"
 
   security-patrol:
     if: github.event.schedule == '30 2 * * *' || github.event.inputs.task == 'security-patrol'
@@ -58,6 +67,15 @@ jobs:
             .github/jules-prompts/security-patrol.txt \
             "[jules-security] Scheduled security patrol" \
             "master"
+      - name: Create jules-error issue on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue create \
+            --title "[jules-error] security-patrol failed" \
+            --body "The security-patrol scheduled task failed. [View run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})" \
+            --label "jules-error"
 
   test-coverage:
     if: github.event.schedule == '0 3 * * 1' || github.event.inputs.task == 'test-coverage'
@@ -73,6 +91,15 @@ jobs:
             .github/jules-prompts/test-coverage.txt \
             "[jules-test] Scheduled test coverage" \
             "master"
+      - name: Create jules-error issue on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue create \
+            --title "[jules-error] test-coverage failed" \
+            --body "The test-coverage scheduled task failed. [View run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})" \
+            --label "jules-error"
 
   dependency-health:
     if: github.event.schedule == '0 3 * * 3' || github.event.inputs.task == 'dependency-health'
@@ -88,6 +115,15 @@ jobs:
             .github/jules-prompts/dependency-health.txt \
             "[jules-deps] Scheduled dependency health check" \
             "master"
+      - name: Create jules-error issue on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue create \
+            --title "[jules-error] dependency-health failed" \
+            --body "The dependency-health scheduled task failed. [View run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})" \
+            --label "jules-error"
 
   doc-consistency:
     if: github.event.schedule == '0 3 * * 5' || github.event.inputs.task == 'doc-consistency'
@@ -103,3 +139,12 @@ jobs:
             .github/jules-prompts/doc-consistency.txt \
             "[jules-docs] Scheduled doc consistency check" \
             "master"
+      - name: Create jules-error issue on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue create \
+            --title "[jules-error] doc-consistency failed" \
+            --body "The doc-consistency scheduled task failed. [View run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})" \
+            --label "jules-error"

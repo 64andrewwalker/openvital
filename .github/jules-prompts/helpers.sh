@@ -7,18 +7,27 @@ set -euo pipefail
 #
 # Required env vars: JULES_API_URL, JULES_API_KEY, JULES_SOURCE
 jules_create_session() {
-  local PROMPT_FILE="$1" TITLE="$2" BRANCH="$3" MODE="${4:-AUTO_CREATE_PR}"
+  local PROMPT_FILE="$1" TITLE="$2" BRANCH="$3" MODE="${4-}"
   local PROMPT
   PROMPT=$(cat "$PROMPT_FILE")
 
   local PAYLOAD
-  PAYLOAD=$(jq -n \
-    --arg title "$TITLE" \
-    --arg prompt "$PROMPT" \
-    --arg source "$JULES_SOURCE" \
-    --arg branch "$BRANCH" \
-    --arg mode "$MODE" \
-    '{title: $title, prompt: $prompt, sourceContext: {source: $source, githubRepoContext: {startingBranch: $branch}}, automationMode: $mode}')
+  if [[ -n "$MODE" ]]; then
+    PAYLOAD=$(jq -n \
+      --arg title "$TITLE" \
+      --arg prompt "$PROMPT" \
+      --arg source "$JULES_SOURCE" \
+      --arg branch "$BRANCH" \
+      --arg mode "$MODE" \
+      '{title: $title, prompt: $prompt, sourceContext: {source: $source, githubRepoContext: {startingBranch: $branch}}, automationMode: $mode}')
+  else
+    PAYLOAD=$(jq -n \
+      --arg title "$TITLE" \
+      --arg prompt "$PROMPT" \
+      --arg source "$JULES_SOURCE" \
+      --arg branch "$BRANCH" \
+      '{title: $title, prompt: $prompt, sourceContext: {source: $source, githubRepoContext: {startingBranch: $branch}}}')
+  fi
 
   local HTTP_CODE RESPONSE BODY
   RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$JULES_API_URL/sessions" \

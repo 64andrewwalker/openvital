@@ -1,6 +1,6 @@
 # Jules Integration — OpenVital
 
-> **Project:** [OpenVital](https://github.com/punkpeye/openvital) — Health tracking CLI (Rust + SQLite)
+> **Project:** [OpenVital](https://github.com/64andrewwalker/openvital) — Health tracking CLI (Rust + SQLite)
 > **Based on:** [jules-integration-template.md](./jules-integration-template.md)
 > **Scheduled tasks:** [jules-scheduled-tasks.md](./jules-scheduled-tasks.md)
 
@@ -39,7 +39,7 @@ This document defines the project-specific configuration for integrating Jules i
 | Template Placeholder | OpenVital Value |
 |---------------------|-----------------|
 | `{{MAIN_BRANCH}}` | `master` |
-| `{{OWNER}}` | `punkpeye` |
+| `{{OWNER}}` | `64andrewwalker` |
 | `{{REPO}}` | `openvital` |
 
 ---
@@ -167,7 +167,7 @@ OpenVital project conventions:
 - [x] Create workflow files in `.github/workflows/` based on the template, **with OpenVital cron overrides from Section 4**
   - [x] `jules-events.yml` — event-driven pipelines (doc sync, PR review, issue autofix)
   - [x] `jules-scheduled.yml` — cron-based scheduled tasks (use OpenVital cron table, not template defaults)
-- [x] Verify `{{OWNER}}` = `punkpeye` in workflow files matches the connected repo
+- [x] Verify `{{OWNER}}` = `64andrewwalker` in workflow files matches the connected repo
 - [x] Create `.github/jules-prompts/` directory with prompt text files per the template's Prompt Management section
 - [ ] Test Pipeline 2 (PR Review) first with a test PR
 - [ ] Enable remaining pipelines after validating review quality
