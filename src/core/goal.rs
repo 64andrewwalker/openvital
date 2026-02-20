@@ -90,73 +90,36 @@ fn compute_current(db: &Database, goal: &Goal, today: NaiveDate) -> Result<Optio
     let is_med = is_medication_type(db, &goal.metric_type)?;
     let cumulative = is_cumulative(&goal.metric_type) || is_med;
 
-    // Filter predicate: exclude medication entries when non-medication entries exist
-    // (name collision), or exclude non-medication entries when this is a medication goal.
-    let category_filter = |m: &&crate::models::Metric| -> bool {
-        if is_med {
-            m.category == Category::Medication
-        } else {
-            m.category != Category::Medication
-        }
-    };
-
-    match goal.timeframe {
-        Timeframe::Daily => {
-            let entries = db.query_by_date(today)?;
-            let day_entries: Vec<_> = entries
-                .iter()
-                .filter(|m| m.metric_type == goal.metric_type)
-                .filter(category_filter)
-                .collect();
-            if day_entries.is_empty() {
-                return Ok(None);
-            }
-            if cumulative {
-                Ok(Some(day_entries.iter().map(|m| m.value).sum()))
-            } else {
-                Ok(Some(day_entries.last().unwrap().value))
-            }
-        }
+    let (start_date, end_date) = match goal.timeframe {
+        Timeframe::Daily => (today, today),
         Timeframe::Weekly => {
             let weekday = today.weekday().num_days_from_monday();
-            let week_start = today - chrono::Duration::days(weekday as i64);
-            let mut values = Vec::new();
-            for i in 0..7 {
-                let date = week_start + chrono::Duration::days(i);
-                if date > today {
-                    break;
-                }
-                let entries = db.query_by_date(date)?;
-                for m in &entries {
-                    if m.metric_type == goal.metric_type && category_filter(&m) {
-                        values.push(m.value);
-                    }
-                }
-            }
-            if values.is_empty() {
-                Ok(None)
-            } else if cumulative {
-                Ok(Some(values.iter().sum()))
-            } else {
-                Ok(Some(*values.last().unwrap()))
-            }
+            (today - chrono::Duration::days(weekday as i64), today)
         }
-        Timeframe::Monthly => {
-            let first_of_month = today.with_day(1).unwrap();
-            let entries = db.query_by_date_range(first_of_month, today)?;
-            let month_entries: Vec<_> = entries
-                .iter()
-                .filter(|m| m.metric_type == goal.metric_type)
-                .filter(category_filter)
-                .collect();
-            if month_entries.is_empty() {
-                Ok(None)
-            } else if cumulative {
-                Ok(Some(month_entries.iter().map(|m| m.value).sum()))
+        Timeframe::Monthly => (today.with_day(1).unwrap(), today),
+    };
+
+    let entries = db.query_by_date_range(start_date, end_date)?;
+    let filtered_entries: Vec<_> = entries
+        .iter()
+        .filter(|m| m.metric_type == goal.metric_type)
+        .filter(|m| {
+            if is_med {
+                m.category == Category::Medication
             } else {
-                Ok(Some(month_entries.last().unwrap().value))
+                m.category != Category::Medication
             }
-        }
+        })
+        .collect();
+
+    if filtered_entries.is_empty() {
+        return Ok(None);
+    }
+
+    if cumulative {
+        Ok(Some(filtered_entries.iter().map(|m| m.value).sum()))
+    } else {
+        Ok(Some(filtered_entries.last().unwrap().value))
     }
 }
 
@@ -193,5 +156,121 @@ fn format_progress(goal: &Goal, current: f64) -> String {
                 format!("current: {}, target: {}", current, goal.target_value)
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::models::metric::{Category, Metric};
+    use chrono::{NaiveTime, TimeZone, Utc};
+    use tempfile::TempDir;
+
+    fn setup_db() -> (TempDir, Database) {
+        let dir = TempDir::new().unwrap();
+        let db_path = dir.path().join("test.db");
+        let db = Database::open(&db_path).unwrap();
+        (dir, db)
+    }
+
+    fn make_metric(metric_type: &str, value: f64, date: NaiveDate) -> Metric {
+        let dt = date.and_time(NaiveTime::from_hms_opt(12, 0, 0).unwrap());
+        let ts = Utc.from_utc_datetime(&dt);
+        let mut m = Metric::new(metric_type.to_string(), value);
+        m.timestamp = ts;
+        m
+    }
+
+    #[test]
+    fn test_compute_current_daily() -> Result<()> {
+        let (_dir, db) = setup_db();
+        let today = NaiveDate::from_ymd_opt(2024, 1, 1).unwrap();
+        let goal = Goal::new("water".into(), 2000.0, Direction::Above, Timeframe::Daily);
+
+        db.insert_metric(&make_metric("water", 500.0, today))?;
+        db.insert_metric(&make_metric("water", 1000.0, today))?;
+
+        let val = compute_current(&db, &goal, today)?;
+        assert_eq!(val, Some(1500.0)); // water is cumulative
+        Ok(())
+    }
+
+    #[test]
+    fn test_compute_current_weekly() -> Result<()> {
+        let (_dir, db) = setup_db();
+        // 2024-01-01 is Monday
+        let monday = NaiveDate::from_ymd_opt(2024, 1, 1).unwrap();
+        let wednesday = NaiveDate::from_ymd_opt(2024, 1, 3).unwrap();
+        let goal = Goal::new("water".into(), 10000.0, Direction::Above, Timeframe::Weekly);
+
+        db.insert_metric(&make_metric("water", 1000.0, monday))?;
+        db.insert_metric(&make_metric("water", 2000.0, wednesday))?;
+
+        let val = compute_current(&db, &goal, wednesday)?;
+        assert_eq!(val, Some(3000.0));
+        Ok(())
+    }
+
+    #[test]
+    fn test_compute_current_snapshot() -> Result<()> {
+        let (_dir, db) = setup_db();
+        let today = NaiveDate::from_ymd_opt(2024, 1, 1).unwrap();
+        let goal = Goal::new("weight".into(), 70.0, Direction::Below, Timeframe::Daily);
+
+        db.insert_metric(&make_metric("weight", 75.0, today))?;
+        let mut m2 = make_metric("weight", 74.0, today);
+        m2.timestamp = m2.timestamp + chrono::Duration::hours(1);
+        db.insert_metric(&m2)?;
+
+        let val = compute_current(&db, &goal, today)?;
+        assert_eq!(val, Some(74.0)); // weight is snapshot
+        Ok(())
+    }
+
+    #[test]
+    fn test_compute_current_monthly_uses_only_current_month() -> Result<()> {
+        let (_dir, db) = setup_db();
+        let today = NaiveDate::from_ymd_opt(2024, 2, 15).unwrap();
+        let goal = Goal::new("weight".into(), 70.0, Direction::Below, Timeframe::Monthly);
+
+        db.insert_metric(&make_metric(
+            "weight",
+            80.0,
+            NaiveDate::from_ymd_opt(2024, 1, 31).unwrap(),
+        ))?;
+        db.insert_metric(&make_metric(
+            "weight",
+            75.0,
+            NaiveDate::from_ymd_opt(2024, 2, 1).unwrap(),
+        ))?;
+        db.insert_metric(&make_metric(
+            "weight",
+            74.0,
+            NaiveDate::from_ymd_opt(2024, 2, 15).unwrap(),
+        ))?;
+
+        let val = compute_current(&db, &goal, today)?;
+        assert_eq!(val, Some(74.0));
+        Ok(())
+    }
+
+    #[test]
+    fn test_compute_current_excludes_medication_entries_on_name_collision() -> Result<()> {
+        let (_dir, db) = setup_db();
+        let today = NaiveDate::from_ymd_opt(2024, 1, 1).unwrap();
+        let goal = Goal::new("pain".into(), 3.0, Direction::Below, Timeframe::Daily);
+
+        let mut non_med = make_metric("pain", 4.0, today);
+        non_med.category = Category::Pain;
+        db.insert_metric(&non_med)?;
+
+        let mut med = make_metric("pain", 99.0, today);
+        med.category = Category::Medication;
+        med.timestamp += chrono::Duration::hours(1);
+        db.insert_metric(&med)?;
+
+        let val = compute_current(&db, &goal, today)?;
+        assert_eq!(val, Some(4.0));
+        Ok(())
     }
 }
