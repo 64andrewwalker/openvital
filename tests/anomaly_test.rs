@@ -220,8 +220,12 @@ fn test_anomaly_below_baseline() {
     // Baseline: 70-76
     for i in 1..=14 {
         let date = today - Duration::days(i);
-        db.insert_metric(&common::make_metric("heart_rate", 70.0 + (i % 7) as f64, date))
-            .unwrap();
+        db.insert_metric(&common::make_metric(
+            "heart_rate",
+            70.0 + (i % 7) as f64,
+            date,
+        ))
+        .unwrap();
     }
 
     // Abnormally low value

@@ -35,7 +35,10 @@ impl FromStr for Threshold {
             "relaxed" => Ok(Self::Relaxed),
             "moderate" => Ok(Self::Moderate),
             "strict" => Ok(Self::Strict),
-            _ => anyhow::bail!("invalid threshold: {} (expected relaxed/moderate/strict)", s),
+            _ => anyhow::bail!(
+                "invalid threshold: {} (expected relaxed/moderate/strict)",
+                s
+            ),
         }
     }
 }

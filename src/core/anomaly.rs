@@ -62,6 +62,11 @@ pub fn detect(
             .filter(|e| e.timestamp.date_naive() == today)
             .collect();
 
+        if today_entries.is_empty() {
+            // Nothing logged today — neither anomalous nor clean
+            continue;
+        }
+
         let mut found_anomaly = false;
         for entry in &today_entries {
             if entry.value < lower || entry.value > upper {
@@ -174,10 +179,13 @@ fn percentile(sorted: &[f64], p: f64) -> f64 {
 
 /// Determine severity based on how far the value is from bounds.
 fn compute_severity(value: f64, baseline: &Baseline, deviation: &str) -> Severity {
+    // Use IQR as normalizer, but fall back to 1% of median for zero-IQR baselines
+    // (common when a metric has constant values, e.g., fixed medication doses).
+    let normalizer = baseline.iqr.max(baseline.median.abs() * 0.01).max(0.01);
     let distance = if deviation == "above" {
-        (value - baseline.q3) / baseline.iqr.max(0.01)
+        (value - baseline.q3) / normalizer
     } else {
-        (baseline.q1 - value) / baseline.iqr.max(0.01)
+        (baseline.q1 - value) / normalizer
     };
 
     if distance > 2.0 {
@@ -186,5 +194,70 @@ fn compute_severity(value: f64, baseline: &Baseline, deviation: &str) -> Severit
         Severity::Warning
     } else {
         Severity::Info
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_percentile_single_element() {
+        assert_eq!(percentile(&[5.0], 50.0), 5.0);
+        assert_eq!(percentile(&[5.0], 25.0), 5.0);
+        assert_eq!(percentile(&[5.0], 75.0), 5.0);
+    }
+
+    #[test]
+    fn test_percentile_empty() {
+        assert_eq!(percentile(&[], 50.0), 0.0);
+    }
+
+    #[test]
+    fn test_percentile_known_values() {
+        let data = vec![10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0];
+        assert!((percentile(&data, 25.0) - 25.0).abs() < 0.1);
+        assert!((percentile(&data, 50.0) - 40.0).abs() < 0.1);
+        assert!((percentile(&data, 75.0) - 55.0).abs() < 0.1);
+    }
+
+    #[test]
+    fn test_percentile_two_elements() {
+        let data = vec![10.0, 20.0];
+        assert_eq!(percentile(&data, 0.0), 10.0);
+        assert_eq!(percentile(&data, 50.0), 15.0);
+        assert_eq!(percentile(&data, 100.0), 20.0);
+    }
+
+    #[test]
+    fn test_compute_baseline_zero_iqr() {
+        let b = compute_baseline(&[72.0, 72.0, 72.0, 72.0, 72.0, 72.0, 72.0]);
+        assert_eq!(b.iqr, 0.0);
+        assert_eq!(b.median, 72.0);
+        assert_eq!(b.q1, 72.0);
+        assert_eq!(b.q3, 72.0);
+    }
+
+    #[test]
+    fn test_compute_baseline_normal() {
+        let b = compute_baseline(&[10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0]);
+        assert!(b.iqr > 0.0);
+        assert!((b.median - 40.0).abs() < 0.1);
+    }
+
+    #[test]
+    fn test_severity_zero_iqr_not_inflated() {
+        let baseline = Baseline {
+            q1: 72.0,
+            median: 72.0,
+            q3: 72.0,
+            iqr: 0.0,
+        };
+        // A tiny deviation of 0.1 from a zero-IQR baseline should NOT be Alert
+        let severity = compute_severity(72.1, &baseline, "above");
+        assert!(
+            !matches!(severity, Severity::Alert),
+            "tiny deviation from zero-IQR baseline should not be Alert"
+        );
     }
 }

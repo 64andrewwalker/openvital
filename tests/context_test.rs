@@ -191,7 +191,10 @@ fn test_context_pain_alert_included() {
 
     let result = context::compute(&db, &config, 7, None).unwrap();
     assert!(
-        result.alerts.iter().any(|a| a.alert_type == "pain_elevated"),
+        result
+            .alerts
+            .iter()
+            .any(|a| a.alert_type == "pain_elevated"),
         "should include pain alert"
     );
 }

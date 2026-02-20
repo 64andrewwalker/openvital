@@ -308,8 +308,8 @@ pub fn format_anomaly(result: &AnomalyResult) -> String {
             Severity::Info => "!",
         };
         out.push_str(&format!(
-            "\n{} {} {:.1} (normal: {:.1}-{:.1}, {} baseline)",
-            severity_marker, a.metric_type, a.value, a.bounds.lower, a.bounds.upper, a.deviation,
+            "\n{} {} {:.1} (typical: {:.1}-{:.1}, {})",
+            severity_marker, a.metric_type, a.value, a.baseline.q1, a.baseline.q3, a.deviation,
         ));
     }
 

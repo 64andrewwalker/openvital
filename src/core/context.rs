@@ -138,7 +138,8 @@ pub fn compute(
         let sum: f64 = values.iter().sum();
         let min = values.iter().cloned().fold(f64::INFINITY, f64::min);
         let max = values.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
-        let avg = (sum / values.len() as f64 * 10.0).round() / 10.0;
+        let raw_avg = sum / values.len() as f64;
+        let avg = (raw_avg * 10.0).round() / 10.0;
 
         let stats = MetricStats {
             min,
@@ -179,9 +180,7 @@ pub fn compute(
     let goal_statuses = crate::core::goal::goal_status(db, None)?;
     let goals: Vec<GoalContext> = goal_statuses
         .into_iter()
-        .filter(|g| {
-            type_filter.is_none() || type_filter.unwrap().contains(&g.metric_type.as_str())
-        })
+        .filter(|g| type_filter.is_none() || type_filter.unwrap().contains(&g.metric_type.as_str()))
         .map(|g| {
             let summary = if g.is_met {
                 format!(
@@ -299,7 +298,12 @@ pub fn compute(
 
     // 7. Anomalies (use days as baseline window, moderate threshold)
     let anomaly_result = anomaly::detect(db, None, days.max(14), Threshold::Moderate)?;
-    let anomalies = anomaly_result.anomalies;
+    // Filter anomalies to match type_filter if active
+    let anomalies: Vec<Anomaly> = anomaly_result
+        .anomalies
+        .into_iter()
+        .filter(|a| type_filter.is_none() || type_filter.unwrap().contains(&a.metric_type.as_str()))
+        .collect();
 
     for a in &anomalies {
         alerts.push(AlertItem {

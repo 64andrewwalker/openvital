@@ -152,9 +152,7 @@ fn main() {
             days,
             threshold,
         } => cmd::anomaly::run(r#type.as_deref(), days, &threshold, cli.human),
-        Commands::Context { days, types } => {
-            cmd::context::run(days, types.as_deref(), cli.human)
-        }
+        Commands::Context { days, types } => cmd::context::run(days, types.as_deref(), cli.human),
         Commands::Completions { shell } => {
             cli::print_completions(shell);
             Ok(())
