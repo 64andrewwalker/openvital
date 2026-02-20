@@ -7,7 +7,7 @@ set -euo pipefail
 #
 # Required env vars: JULES_API_URL, JULES_API_KEY, JULES_SOURCE
 #
-# Retry policy: only retries on 5xx or connection failures. 4xx errors fail immediately.
+# Retry policy: retries on 5xx, 429 (rate limit), or connection failures. Other 4xx fail immediately.
 jules_create_session() {
   local PROMPT_FILE="$1" TITLE="$2" BRANCH="$3" MODE="${4-}"
 
@@ -53,8 +53,8 @@ jules_create_session() {
     return 0
   fi
 
-  # Only retry on 5xx or connection failures (code 0/000)
-  if [[ "$HTTP_CODE" -lt 500 && "$HTTP_CODE" -gt 0 ]]; then
+  # Only retry on 5xx, 429 (rate limit), or connection failures (code 0/000)
+  if [[ "$HTTP_CODE" -ne 429 && "$HTTP_CODE" -lt 500 && "$HTTP_CODE" -gt 0 ]]; then
     echo "::error::Jules API returned HTTP $HTTP_CODE (not retryable)"
     return 1
   fi

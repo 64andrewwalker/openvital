@@ -66,6 +66,8 @@ jobs:
       github.event.pull_request.draft == false &&
       github.event.pull_request.head.repo.full_name == github.repository &&
       !startsWith(github.event.pull_request.title, '[jules-') &&
+      !startsWith(github.event.pull_request.title, 'chore(release)') &&
+      !startsWith(github.event.pull_request.title, 'release-please') &&
       github.actor != 'release-please[bot]'
     runs-on: ubuntu-latest
     steps:

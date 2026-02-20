@@ -170,6 +170,30 @@ OUTPUT=$(jules_create_session "/nonexistent/file.txt" "test title" "main" 2>&1) 
 assert_eq "exit code non-zero for missing file" "1" "$EXIT_CODE"
 assert_contains "error mentions file" "not found" "$OUTPUT"
 
+# ─── Test 8: 429 (rate limit) retries like 5xx ───────────────────────────────
+echo ""
+echo "Test 8: 429 (rate limit) retries like 5xx"
+CALL_COUNT_FILE=$(mktemp)
+echo "0" > "$CALL_COUNT_FILE"
+curl() {
+  local count
+  count=$(cat "$CALL_COUNT_FILE")
+  count=$((count + 1))
+  echo "$count" > "$CALL_COUNT_FILE"
+  echo "$MOCK_RESPONSE"
+  echo "$MOCK_HTTP_CODE"
+}
+export CALL_COUNT_FILE
+export -f curl
+export MOCK_HTTP_CODE=429
+export MOCK_RESPONSE='{"error":"rate limited"}'
+EXIT_CODE=0
+OUTPUT=$(jules_create_session "$TMPFILE" "test title" "main" 2>/dev/null) || EXIT_CODE=$?
+CALL_COUNT=$(cat "$CALL_COUNT_FILE")
+assert_eq "exit code non-zero on double 429" "1" "$EXIT_CODE"
+assert_eq "curl called twice for 429" "2" "$CALL_COUNT"
+rm -f "$CALL_COUNT_FILE"
+
 rm -f "$TMPFILE" "$PAYLOAD_FILE"
 
 echo ""
