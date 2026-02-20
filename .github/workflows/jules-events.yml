@@ -7,6 +7,10 @@ on:
   issues:
     types: [opened]
 
+permissions:
+  contents: read
+  issues: write
+
 concurrency:
   group: jules-events-${{ github.event_name }}-${{ github.event.number || github.event.issue.number }}
   cancel-in-progress: false
@@ -29,83 +33,117 @@ jobs:
       - name: Create Jules doc-sync session
         env:
           JULES_API_KEY: ${{ secrets.JULES_API_KEY }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           source .github/jules-prompts/helpers.sh
           jules_create_session \
             .github/jules-prompts/doc-sync.txt \
-            "[jules-docs] Sync docs for PR #${{ github.event.pull_request.number }}" \
+            "[jules-docs] Sync docs for PR #${PR_NUMBER}" \
             "master"
-
       - name: Create jules-error issue on failure
         if: failure()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          gh issue create \
-            --title "[jules-error] doc-sync failed for PR #${{ github.event.pull_request.number }}" \
-            --body "The doc-sync pipeline failed. [View run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})" \
-            --label "jules-error"
+          TITLE="[jules-error] doc-sync failed for PR #${PR_NUMBER}"
+          EXISTING=$(gh issue list --label "jules-error" --state open \
+            --json title --jq ".[] | select(.title == \"$TITLE\") | .title" | head -1)
+          if [[ -z "$EXISTING" ]]; then
+            gh issue create \
+              --title "$TITLE" \
+              --body "The doc-sync pipeline failed. [View run](${RUN_URL})" \
+              --label "jules-error"
+          fi
 
   # Pipeline 2: PR Review (on PR open/update)
+  # Excludes: Jules PRs, release-please PRs, draft PRs, fork PRs
   pr-review:
     if: >
       github.event_name == 'pull_request' &&
       (github.event.action == 'opened' || github.event.action == 'synchronize') &&
+      github.event.pull_request.draft == false &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
       !startsWith(github.event.pull_request.title, '[jules-') &&
       !startsWith(github.event.pull_request.title, 'chore(release)') &&
-      !startsWith(github.event.pull_request.title, 'release-please')
+      !startsWith(github.event.pull_request.title, 'release-please') &&
+      github.actor != 'release-please[bot]'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: Create Jules review session
         env:
           JULES_API_KEY: ${{ secrets.JULES_API_KEY }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
         run: |
           source .github/jules-prompts/helpers.sh
           jules_create_session \
             .github/jules-prompts/pr-review.txt \
-            "Review PR #${{ github.event.pull_request.number }}" \
-            "${{ github.event.pull_request.head.ref }}" \
+            "Review PR #${PR_NUMBER}" \
+            "${PR_HEAD_REF}" \
             ""
-
       - name: Create jules-error issue on failure
         if: failure()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          gh issue create \
-            --title "[jules-error] pr-review failed for PR #${{ github.event.pull_request.number }}" \
-            --body "The pr-review pipeline failed. [View run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})" \
-            --label "jules-error"
+          TITLE="[jules-error] pr-review failed for PR #${PR_NUMBER}"
+          EXISTING=$(gh issue list --label "jules-error" --state open \
+            --json title --jq ".[] | select(.title == \"$TITLE\") | .title" | head -1)
+          if [[ -z "$EXISTING" ]]; then
+            gh issue create \
+              --title "$TITLE" \
+              --body "The pr-review pipeline failed. [View run](${RUN_URL})" \
+              --label "jules-error"
+          fi
 
-  # Pipeline 3: Issue AutoFix (on issue create, excluding Jules-created issues)
-  # Primary defense: jules-created label. Secondary: actor name check.
+  # Pipeline 3: Issue AutoFix (on issue create, excluding automated issues)
+  # Defense layers:
+  #   1. jules-created label (primary — prevents processing Jules's own issues)
+  #   2. jules-error label (prevents loops from failure issues)
+  #   3. [jules- title prefix (prevents processing Jules-titled issues)
+  #   4. Actor exclusion list (secondary — covers bot accounts)
   # If Jules actor name changes, update the actor list below.
   issue-autofix:
     if: >
       github.event_name == 'issues' &&
       github.event.action == 'opened' &&
       !contains(github.event.issue.labels.*.name, 'jules-created') &&
+      !contains(github.event.issue.labels.*.name, 'jules-error') &&
+      !startsWith(github.event.issue.title, '[jules-') &&
       github.actor != 'jules-bot' &&
-      github.actor != 'jules[bot]'
+      github.actor != 'jules[bot]' &&
+      github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: Create Jules autofix session
         env:
           JULES_API_KEY: ${{ secrets.JULES_API_KEY }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
         run: |
           source .github/jules-prompts/helpers.sh
           jules_create_session \
             .github/jules-prompts/issue-autofix.txt \
-            "Assess issue #${{ github.event.issue.number }}" \
+            "Assess issue #${ISSUE_NUMBER}" \
             "master"
       - name: Create jules-error issue on failure
         if: failure()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          gh issue create \
-            --title "[jules-error] issue-autofix failed for issue #${{ github.event.issue.number }}" \
-            --body "The issue-autofix pipeline failed. [View run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})" \
-            --label "jules-error"
+          TITLE="[jules-error] issue-autofix failed for issue #${ISSUE_NUMBER}"
+          EXISTING=$(gh issue list --label "jules-error" --state open \
+            --json title --jq ".[] | select(.title == \"$TITLE\") | .title" | head -1)
+          if [[ -z "$EXISTING" ]]; then
+            gh issue create \
+              --title "$TITLE" \
+              --body "The issue-autofix pipeline failed. [View run](${RUN_URL})" \
+              --label "jules-error"
+          fi

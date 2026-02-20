@@ -19,3 +19,4 @@ OpenVital project conventions:
 - Follow Conventional Commits format: type(scope): description
 - Never modify CHANGELOG.md (managed by release-please)
 - Integration tests use temp databases — see tests/ for patterns
+- If you create any GitHub Issues, apply the label "jules-created"

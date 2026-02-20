@@ -8,7 +8,9 @@ looking for these categories of bugs:
 3. Resource leaks: unclosed connections, file handles, streams
 4. Type safety: implicit conversions, unsafe casts, unvalidated type assertions
 
-Focus on core/ computation logic — this is where most business rules live.
+Scope: Only examine and fix code in src/core/ and src/db/. Do NOT modify src/cmd/ —
+command handlers must remain thin shells that delegate to core/. If a bug manifests
+in cmd/, trace it to its root cause in core/ or db/ before fixing.
 
 Rules:
 - Submit at most 1 PR, focused on the single most severe bug

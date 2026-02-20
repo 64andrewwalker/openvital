@@ -9,6 +9,10 @@ Review:
 
 Cross-check README commands table against src/cli.rs enum variants to find mismatches.
 
+Before creating a PR, check if an open PR with title prefix "[jules-docs]"
+already exists. If one does, add a comment to that PR with your findings
+instead of opening a new PR.
+
 Actions:
 - Fix factually incorrect documentation: create a PR
 - PR title format: [jules-docs] Update <file/module> documentation

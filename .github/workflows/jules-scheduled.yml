@@ -20,9 +20,9 @@ on:
           - dependency-health
           - doc-consistency
 
-concurrency:
-  group: jules-scheduled
-  cancel-in-progress: false
+permissions:
+  contents: read
+  issues: write
 
 env:
   JULES_API_URL: https://jules.googleapis.com/v1alpha
@@ -31,6 +31,9 @@ env:
 jobs:
   bug-hunter:
     if: github.event.schedule == '0 2 * * *' || github.event.inputs.task == 'bug-hunter'
+    concurrency:
+      group: jules-scheduled-bug-hunter
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -47,14 +50,23 @@ jobs:
         if: failure()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          gh issue create \
-            --title "[jules-error] bug-hunter failed" \
-            --body "The bug-hunter scheduled task failed. [View run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})" \
-            --label "jules-error"
+          TITLE="[jules-error] bug-hunter failed"
+          EXISTING=$(gh issue list --label "jules-error" --state open \
+            --json title --jq ".[] | select(.title == \"$TITLE\") | .title" | head -1)
+          if [[ -z "$EXISTING" ]]; then
+            gh issue create \
+              --title "$TITLE" \
+              --body "The bug-hunter scheduled task failed. [View run](${RUN_URL})" \
+              --label "jules-error"
+          fi
 
   security-patrol:
     if: github.event.schedule == '30 2 * * *' || github.event.inputs.task == 'security-patrol'
+    concurrency:
+      group: jules-scheduled-security-patrol
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -71,14 +83,23 @@ jobs:
         if: failure()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          gh issue create \
-            --title "[jules-error] security-patrol failed" \
-            --body "The security-patrol scheduled task failed. [View run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})" \
-            --label "jules-error"
+          TITLE="[jules-error] security-patrol failed"
+          EXISTING=$(gh issue list --label "jules-error" --state open \
+            --json title --jq ".[] | select(.title == \"$TITLE\") | .title" | head -1)
+          if [[ -z "$EXISTING" ]]; then
+            gh issue create \
+              --title "$TITLE" \
+              --body "The security-patrol scheduled task failed. [View run](${RUN_URL})" \
+              --label "jules-error"
+          fi
 
   test-coverage:
     if: github.event.schedule == '0 3 * * 1' || github.event.inputs.task == 'test-coverage'
+    concurrency:
+      group: jules-scheduled-test-coverage
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -95,14 +116,23 @@ jobs:
         if: failure()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          gh issue create \
-            --title "[jules-error] test-coverage failed" \
-            --body "The test-coverage scheduled task failed. [View run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})" \
-            --label "jules-error"
+          TITLE="[jules-error] test-coverage failed"
+          EXISTING=$(gh issue list --label "jules-error" --state open \
+            --json title --jq ".[] | select(.title == \"$TITLE\") | .title" | head -1)
+          if [[ -z "$EXISTING" ]]; then
+            gh issue create \
+              --title "$TITLE" \
+              --body "The test-coverage scheduled task failed. [View run](${RUN_URL})" \
+              --label "jules-error"
+          fi
 
   dependency-health:
     if: github.event.schedule == '0 3 * * 3' || github.event.inputs.task == 'dependency-health'
+    concurrency:
+      group: jules-scheduled-dependency-health
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -119,14 +149,23 @@ jobs:
         if: failure()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          gh issue create \
-            --title "[jules-error] dependency-health failed" \
-            --body "The dependency-health scheduled task failed. [View run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})" \
-            --label "jules-error"
+          TITLE="[jules-error] dependency-health failed"
+          EXISTING=$(gh issue list --label "jules-error" --state open \
+            --json title --jq ".[] | select(.title == \"$TITLE\") | .title" | head -1)
+          if [[ -z "$EXISTING" ]]; then
+            gh issue create \
+              --title "$TITLE" \
+              --body "The dependency-health scheduled task failed. [View run](${RUN_URL})" \
+              --label "jules-error"
+          fi
 
   doc-consistency:
     if: github.event.schedule == '0 3 * * 5' || github.event.inputs.task == 'doc-consistency'
+    concurrency:
+      group: jules-scheduled-doc-consistency
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -143,8 +182,14 @@ jobs:
         if: failure()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          gh issue create \
-            --title "[jules-error] doc-consistency failed" \
-            --body "The doc-consistency scheduled task failed. [View run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})" \
-            --label "jules-error"
+          TITLE="[jules-error] doc-consistency failed"
+          EXISTING=$(gh issue list --label "jules-error" --state open \
+            --json title --jq ".[] | select(.title == \"$TITLE\") | .title" | head -1)
+          if [[ -z "$EXISTING" ]]; then
+            gh issue create \
+              --title "$TITLE" \
+              --body "The doc-consistency scheduled task failed. [View run](${RUN_URL})" \
+              --label "jules-error"
+          fi

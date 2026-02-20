@@ -6,8 +6,17 @@ set -euo pipefail
 # Usage: jules_create_session <prompt_file> <title> <branch> [automation_mode]
 #
 # Required env vars: JULES_API_URL, JULES_API_KEY, JULES_SOURCE
+#
+# Retry policy: retries on 5xx, 429 (rate limit), or connection failures. Other 4xx fail immediately.
 jules_create_session() {
   local PROMPT_FILE="$1" TITLE="$2" BRANCH="$3" MODE="${4-}"
+
+  # Validate prompt file exists before doing anything
+  if [[ ! -f "$PROMPT_FILE" ]]; then
+    echo "::error::Prompt file not found: $PROMPT_FILE"
+    return 1
+  fi
+
   local PROMPT
   PROMPT=$(cat "$PROMPT_FILE")
 
@@ -30,6 +39,8 @@ jules_create_session() {
   fi
 
   local HTTP_CODE RESPONSE BODY
+
+  # First attempt
   RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$JULES_API_URL/sessions" \
     -H "Content-Type: application/json" \
     -H "X-Goog-Api-Key: $JULES_API_KEY" \
@@ -40,11 +51,18 @@ jules_create_session() {
   if [[ "$HTTP_CODE" -ge 200 && "$HTTP_CODE" -lt 300 ]]; then
     echo "$BODY"
     return 0
+  fi
+
+  # Only retry on 5xx, 429 (rate limit), or connection failures (code 0/000)
+  if [[ "$HTTP_CODE" -ne 429 && "$HTTP_CODE" -lt 500 && "$HTTP_CODE" -gt 0 ]]; then
+    echo "::error::Jules API returned HTTP $HTTP_CODE (not retryable)"
+    return 1
   fi
 
   echo "::warning::Jules API returned HTTP $HTTP_CODE — retrying in 60s"
   sleep 60
 
+  # Retry
   RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$JULES_API_URL/sessions" \
     -H "Content-Type: application/json" \
     -H "X-Goog-Api-Key: $JULES_API_KEY" \
@@ -57,6 +75,6 @@ jules_create_session() {
     return 0
   fi
 
-  echo "::error::Jules API failed after retry (HTTP $HTTP_CODE): $BODY"
+  echo "::error::Jules API failed after retry (HTTP $HTTP_CODE)"
   return 1
 }

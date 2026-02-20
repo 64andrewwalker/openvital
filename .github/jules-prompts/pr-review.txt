@@ -29,7 +29,7 @@ Additional criteria for this Rust CLI project:
 Rules:
 - Focus on substantive issues, not style (linters handle style)
 - For each issue, explain WHY it's a problem and suggest a fix
-- Categorize issues as: 🔴 Blocking / 🟡 Suggestion / 🟢 Nit
+- Categorize issues as: [BLOCKING] / [SUGGESTION] / [NIT]
 - If no blocking issues: approve the PR
 - If blocking issues found: request changes
 - Do NOT comment on code you don't understand — ask a question instead
