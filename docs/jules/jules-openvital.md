@@ -164,15 +164,15 @@ OpenVital project conventions:
 
 - [ ] Connect openvital repo at [jules.google.com](https://jules.google.com)
 - [ ] Add `JULES_API_KEY` to GitHub repo secrets
-- [ ] Create workflow files in `.github/workflows/` based on the template, **with OpenVital cron overrides from Section 4**
-  - [ ] `jules-events.yml` — event-driven pipelines (doc sync, PR review, issue autofix)
-  - [ ] `jules-scheduled.yml` — cron-based scheduled tasks (use OpenVital cron table, not template defaults)
-- [ ] Verify `{{OWNER}}` = `punkpeye` in workflow files matches the connected repo
-- [ ] Create `.github/jules-prompts/` directory with prompt text files per the template's Prompt Management section
+- [x] Create workflow files in `.github/workflows/` based on the template, **with OpenVital cron overrides from Section 4**
+  - [x] `jules-events.yml` — event-driven pipelines (doc sync, PR review, issue autofix)
+  - [x] `jules-scheduled.yml` — cron-based scheduled tasks (use OpenVital cron table, not template defaults)
+- [x] Verify `{{OWNER}}` = `punkpeye` in workflow files matches the connected repo
+- [x] Create `.github/jules-prompts/` directory with prompt text files per the template's Prompt Management section
 - [ ] Test Pipeline 2 (PR Review) first with a test PR
 - [ ] Enable remaining pipelines after validating review quality
-- [ ] Create GitHub label `jules-created` for self-loop prevention (required by issue-autofix filter)
-- [ ] Create GitHub label `jules-error` for failure tracking
+- [x] Create GitHub label `jules-created` for self-loop prevention (required by issue-autofix filter)
+- [x] Create GitHub label `jules-error` for failure tracking
 
 ---
 
