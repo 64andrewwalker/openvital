@@ -43,7 +43,7 @@ pub fn detect(
         // Separate today's entries from baseline
         let baseline_values: Vec<f64> = entries
             .iter()
-            .filter(|e| e.timestamp.date_naive() < today)
+            .filter(|e| e.timestamp.with_timezone(&Local).date_naive() < today)
             .map(|e| e.value)
             .collect();
 
@@ -59,7 +59,7 @@ pub fn detect(
         // Check today's entries against baseline
         let today_entries: Vec<_> = entries
             .iter()
-            .filter(|e| e.timestamp.date_naive() == today)
+            .filter(|e| e.timestamp.with_timezone(&Local).date_naive() == today)
             .collect();
 
         if today_entries.is_empty() {
