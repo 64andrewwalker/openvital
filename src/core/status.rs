@@ -198,23 +198,37 @@ pub fn check_consecutive_pain(
         let mut consecutive = 0u32;
         let mut latest_value = 0.0f64;
 
-        for i in 0..30 {
-            // look back up to 30 days
-            let date = today - Duration::days(i);
-            let entries = db.query_by_date(date)?;
-            let day_pain: Vec<f64> = entries
-                .iter()
-                .filter(|m| m.metric_type == *pain_type && m.value >= threshold)
-                .map(|m| m.value)
-                .collect();
+        let from = today - Duration::days(29);
+        // Query one day extra on each side to account for timezone shifts
+        let entries = db.query_all(
+            Some(pain_type),
+            Some(from - Duration::days(1)),
+            Some(today + Duration::days(1)),
+        )?;
 
-            if day_pain.is_empty() {
-                break;
+        let mut has_pain = [None; 30];
+        for m in entries {
+            if m.value >= threshold {
+                let local_date = m.timestamp.with_timezone(&Local).date_naive();
+                let diff = (today - local_date).num_days();
+                if diff >= 0 && diff < 30 {
+                    let idx = diff as usize;
+                    let val = has_pain[idx].get_or_insert(f64::NEG_INFINITY);
+                    if m.value > *val {
+                        *val = m.value;
+                    }
+                }
             }
+        }
 
-            consecutive += 1;
-            if i == 0 {
-                latest_value = day_pain.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+        for i in 0..30 {
+            if let Some(max_val) = has_pain[i] {
+                consecutive += 1;
+                if i == 0 {
+                    latest_value = max_val;
+                }
+            } else {
+                break;
             }
         }
 
