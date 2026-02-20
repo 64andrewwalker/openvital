@@ -139,6 +139,20 @@ Test organization:
 
 `type(scope): description` — e.g., `feat(trend): add moving average support`
 
+## PR Review Default Process
+
+When the user sends PR links/lists for review, execute end-to-end review by default — don't stop at suggestions.
+
+**Three mandatory checks:**
+1. Does the PR actually solve the stated problem?
+2. Are the changes sound (regression risk, maintainability, test coverage)?
+3. Can it merge as-is, or must changes be made first?
+
+**Action rules:**
+- **Blocking issues found** — leave blocking comments on the PR (specify file, risk, conclusion). Do NOT merge.
+- **Only minor issues** — fix directly on the PR branch, add/fix tests, verify CI passes, then merge.
+- **Review conclusion must include:** per-PR disposition (merge / changes requested) with key rationale.
+
 ## Spec Reference
 
 `docs/openvital-spec.md` contains the full product specification. All Phase 1-3 features are implemented.
