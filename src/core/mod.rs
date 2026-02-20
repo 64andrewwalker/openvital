@@ -1,3 +1,4 @@
+pub mod anomaly;
 pub mod export;
 pub mod goal;
 pub mod logging;
