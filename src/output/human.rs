@@ -1,6 +1,8 @@
+use crate::core::context::ContextResult;
 use crate::core::med::MedStatus;
 use crate::core::status::StatusData;
 use crate::models::Metric;
+use crate::models::anomaly::{AnomalyResult, Severity};
 use crate::models::config::Units;
 use crate::models::med::Medication;
 
@@ -285,4 +287,90 @@ pub fn format_med_stop(name: &str, reason: Option<&str>) -> String {
         Some(r) => format!("Stopped {}: {}", name, r),
         None => format!("Stopped {}", name),
     }
+}
+
+/// Format anomaly detection results for human display.
+pub fn format_anomaly(result: &AnomalyResult) -> String {
+    let mut out = format!(
+        "=== Anomaly Scan ({} days, {} threshold) ===\n",
+        result.period.days, result.threshold
+    );
+
+    if result.anomalies.is_empty() {
+        out.push_str(&format!("\n{}", result.summary));
+        return out;
+    }
+
+    for a in &result.anomalies {
+        let severity_marker = match a.severity {
+            Severity::Alert => "!!!",
+            Severity::Warning => "!!",
+            Severity::Info => "!",
+        };
+        out.push_str(&format!(
+            "\n{} {} {:.1} (normal: {:.1}-{:.1}, {} baseline)",
+            severity_marker, a.metric_type, a.value, a.bounds.lower, a.bounds.upper, a.deviation,
+        ));
+    }
+
+    out.push_str(&format!("\n\n{}", result.summary));
+
+    if !result.clean_types.is_empty() {
+        out.push_str(&format!("\nNormal: {}", result.clean_types.join(", ")));
+    }
+
+    out
+}
+
+/// Format health context briefing for human display.
+pub fn format_context(result: &ContextResult) -> String {
+    let mut out = format!(
+        "=== Health Context ({} days: {} to {}) ===\n",
+        result.period.days, result.period.start, result.period.end
+    );
+
+    out.push_str(&format!("\n{}\n", result.summary));
+
+    // Metrics
+    if !result.metrics.is_empty() {
+        out.push_str("\n--- Metrics ---\n");
+        let mut sorted_keys: Vec<&String> = result.metrics.keys().collect();
+        sorted_keys.sort();
+        for key in sorted_keys {
+            let m = &result.metrics[key];
+            out.push_str(&format!("  {}: {}\n", key, m.summary));
+        }
+    }
+
+    // Goals
+    if !result.goals.is_empty() {
+        out.push_str("\n--- Goals ---\n");
+        for g in &result.goals {
+            let status = if g.is_met { "MET" } else { "..." };
+            out.push_str(&format!("  [{}] {}\n", status, g.summary));
+        }
+    }
+
+    // Medications
+    if let Some(ref meds) = result.medications {
+        out.push_str(&format!("\n--- Medications ---\n  {}\n", meds.summary));
+    }
+
+    // Streaks
+    if result.streaks.logging_days > 0 {
+        out.push_str(&format!(
+            "\n--- Streaks ---\n  Logging: {} day(s)\n",
+            result.streaks.logging_days
+        ));
+    }
+
+    // Alerts
+    if !result.alerts.is_empty() {
+        out.push_str("\n--- Alerts ---\n");
+        for a in &result.alerts {
+            out.push_str(&format!("  [{}] {}\n", a.alert_type, a.message));
+        }
+    }
+
+    out.trim_end().to_string()
 }
