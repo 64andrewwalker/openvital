@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.1](https://github.com/64andrewwalker/openvital/compare/v0.4.0...v0.4.1) (2026-02-20)
+
+
+### Bug Fixes
+
+* **jules:** security hardening and TDD enforcement ([#14](https://github.com/64andrewwalker/openvital/issues/14)) ([a510382](https://github.com/64andrewwalker/openvital/commit/a510382fddee7b5842450228066f227cefef587b))
+
 ## [0.4.0](https://github.com/64andrewwalker/openvital/compare/v0.3.1...v0.4.0) (2026-02-20)
 
 
