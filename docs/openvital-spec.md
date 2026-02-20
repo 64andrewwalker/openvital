@@ -108,6 +108,25 @@ Example goals:
 - water above 2000ml (daily)
 - pain below 3 (daily)
 
+### 3.4 Medications
+
+Medication management tracks active prescriptions and adherence.
+
+```
+Medication {
+  id:         UUID
+  name:       string (unique, case-insensitive)
+  dose:       string (optional)
+  route:      string (default: "oral")
+  frequency:  string (e.g., "daily", "as_needed")
+  active:     bool
+  started_at: ISO 8601
+  note:       string (optional)
+}
+```
+
+Taking a medication creates a standard `Metric` entry with `type` equal to the medication name.
+
 ---
 
 ## 4. CLI Interface
@@ -297,6 +316,32 @@ openvital report --from 2026-01-01 --to 2026-02-17
 
 The report outputs a comprehensive JSON blob with all metrics, trends, goal progress, and correlations. This is the primary input for an agent to generate health advice.
 
+#### `openvital med <subcommand>`
+
+Manage medications and adherence.
+
+```bash
+# Add a medication
+openvital med add ibuprofen --dose 400mg --freq as_needed
+openvital med add atorvastatin --dose 20mg --freq daily --route oral
+
+# Take a medication
+openvital med take ibuprofen
+openvital med take atorvastatin --note "With dinner"
+
+# List medications
+openvital med list
+openvital med list --all  # include stopped meds
+
+# Check adherence
+openvital med status
+openvital med status --name atorvastatin --last 30
+
+# Stop/Remove
+openvital med stop ibuprofen --reason "No longer needed"
+openvital med remove atorvastatin --yes
+```
+
 #### `openvital config <subcommand>`
 
 Manage configuration.
@@ -324,6 +369,9 @@ Export data for backup or analysis.
 openvital export --format csv --output health_data.csv
 openvital export --format json --output health_data.json
 openvital export --format csv --type weight --from 2026-01-01
+
+# Include medication records (JSON only)
+openvital export --format json --with-medications
 ```
 
 #### `openvital import [flags]`
@@ -495,6 +543,8 @@ curl -sSL https://github.com/<org>/openvital/releases/latest/download/openvital-
 
 ```bash
 openvital init
+# or non-interactive
+openvital init --skip --units metric
 ```
 
 Interactive setup that asks:
