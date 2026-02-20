@@ -114,6 +114,11 @@ impl Config {
         let path = Self::path();
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)?;
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                std::fs::set_permissions(parent, std::fs::Permissions::from_mode(0o700))?;
+            }
         }
         let contents = toml::to_string_pretty(self)?;
 
@@ -127,14 +132,15 @@ impl Config {
             options.write(true).create(true).truncate(true).mode(0o600);
             let mut file = options.open(&path)?;
 
+            file.write_all(contents.as_bytes())?;
+
             // Ensure permissions are 0o600 even if file already existed
+            // Setting this after write to avoid data loss on empty file if this fails
             let mut perms = file.metadata()?.permissions();
             if perms.mode() & 0o777 != 0o600 {
                 perms.set_mode(0o600);
                 fs::set_permissions(&path, perms)?;
             }
-
-            file.write_all(contents.as_bytes())?;
         }
         #[cfg(not(unix))]
         {
