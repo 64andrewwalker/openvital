@@ -116,7 +116,31 @@ impl Config {
             std::fs::create_dir_all(parent)?;
         }
         let contents = toml::to_string_pretty(self)?;
-        std::fs::write(&path, contents)?;
+
+        #[cfg(unix)]
+        {
+            use std::fs::{self, OpenOptions};
+            use std::io::Write;
+            use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
+
+            let mut options = OpenOptions::new();
+            options.write(true).create(true).truncate(true).mode(0o600);
+            let mut file = options.open(&path)?;
+
+            // Ensure permissions are 0o600 even if file already existed
+            let mut perms = file.metadata()?.permissions();
+            if perms.mode() & 0o777 != 0o600 {
+                perms.set_mode(0o600);
+                fs::set_permissions(&path, perms)?;
+            }
+
+            file.write_all(contents.as_bytes())?;
+        }
+        #[cfg(not(unix))]
+        {
+            std::fs::write(&path, contents)?;
+        }
+
         Ok(())
     }
 
