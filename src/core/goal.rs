@@ -162,7 +162,7 @@ fn format_progress(goal: &Goal, current: f64) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::models::metric::Metric;
+    use crate::models::metric::{Category, Metric};
     use chrono::{NaiveTime, TimeZone, Utc};
     use tempfile::TempDir;
 
@@ -224,6 +224,53 @@ mod tests {
 
         let val = compute_current(&db, &goal, today)?;
         assert_eq!(val, Some(74.0)); // weight is snapshot
+        Ok(())
+    }
+
+    #[test]
+    fn test_compute_current_monthly_uses_only_current_month() -> Result<()> {
+        let (_dir, db) = setup_db();
+        let today = NaiveDate::from_ymd_opt(2024, 2, 15).unwrap();
+        let goal = Goal::new("weight".into(), 70.0, Direction::Below, Timeframe::Monthly);
+
+        db.insert_metric(&make_metric(
+            "weight",
+            80.0,
+            NaiveDate::from_ymd_opt(2024, 1, 31).unwrap(),
+        ))?;
+        db.insert_metric(&make_metric(
+            "weight",
+            75.0,
+            NaiveDate::from_ymd_opt(2024, 2, 1).unwrap(),
+        ))?;
+        db.insert_metric(&make_metric(
+            "weight",
+            74.0,
+            NaiveDate::from_ymd_opt(2024, 2, 15).unwrap(),
+        ))?;
+
+        let val = compute_current(&db, &goal, today)?;
+        assert_eq!(val, Some(74.0));
+        Ok(())
+    }
+
+    #[test]
+    fn test_compute_current_excludes_medication_entries_on_name_collision() -> Result<()> {
+        let (_dir, db) = setup_db();
+        let today = NaiveDate::from_ymd_opt(2024, 1, 1).unwrap();
+        let goal = Goal::new("pain".into(), 3.0, Direction::Below, Timeframe::Daily);
+
+        let mut non_med = make_metric("pain", 4.0, today);
+        non_med.category = Category::Pain;
+        db.insert_metric(&non_med)?;
+
+        let mut med = make_metric("pain", 99.0, today);
+        med.category = Category::Medication;
+        med.timestamp += chrono::Duration::hours(1);
+        db.insert_metric(&med)?;
+
+        let val = compute_current(&db, &goal, today)?;
+        assert_eq!(val, Some(4.0));
         Ok(())
     }
 }
