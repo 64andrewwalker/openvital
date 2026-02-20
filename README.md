@@ -40,18 +40,25 @@ openvital trend weight --period weekly --last 8
 
 # Set a goal
 openvital goal set water --target 2000 --direction above --timeframe daily
+
+# Track medications
+openvital med add ibuprofen --dose 400mg --freq as_needed
+openvital med take ibuprofen
+openvital med status
 ```
 
 ## Commands
 
 | Command | Description |
 |---------|-------------|
-| `init` | Interactive profile setup |
+| `init` | Interactive profile setup (optional `--units`) |
 | `log <type> <value>` | Log a metric (single or `--batch`) |
 | `show [type]` | Show metric history |
 | `trend <type>` | Trend analysis with period bucketing |
 | `trend --correlate a,b` | Pearson correlation between two metrics |
 | `goal set/status/remove` | Goal management |
+| `med add/take/list` | Medication management (add/take/list) |
+| `med stop/remove/status` | Medication management (stop/remove/status) |
 | `status` | Daily overview with streaks and pain alerts |
 | `report` | Period reports (week/month/custom) |
 | `export` | Export to CSV/JSON |

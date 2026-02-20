@@ -108,6 +108,28 @@ Example goals:
 - water above 2000ml (daily)
 - pain below 3 (daily)
 
+### 3.4 Medication
+
+```
+Medication {
+  id:           UUID
+  name:         string
+  dose:         string (optional, e.g. "400mg")
+  route:        enum (oral, topical, inhaled, injection, ...)
+  frequency:    enum (daily, 2x_daily, 3x_daily, weekly, as_needed)
+  active:       bool
+  started_at:   ISO 8601
+  stopped_at:   ISO 8601 (optional)
+  note:         string (optional)
+}
+```
+
+Taking a medication creates a standard `Metric` entry with:
+- category: `medication` (implied)
+- type: `<medication_name>`
+- value: `1.0` (count of doses/applications)
+- unit: `"dose"` or `"application"`
+
 ---
 
 ## 4. CLI Interface
@@ -233,6 +255,31 @@ openvital goal status weight
 
 # Remove a goal
 openvital goal remove <goal_id>
+```
+
+#### `openvital med <subcommand>`
+
+Manage medications and adherence.
+
+```bash
+# Add a new medication
+openvital med add ibuprofen --dose "400mg" --freq as_needed
+openvital med add vitamin_d --dose "1 tablet" --freq daily --route oral
+
+# Record taking a dose
+openvital med take ibuprofen
+openvital med take vitamin_d --note "With breakfast"
+
+# Check adherence status
+openvital med status
+openvital med status vitamin_d --last 30
+
+# List medications
+openvital med list
+openvital med list --all  # include stopped
+
+# Stop a medication
+openvital med stop ibuprofen --reason "No longer needed"
 ```
 
 #### `openvital status`
