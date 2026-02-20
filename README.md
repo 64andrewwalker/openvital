@@ -40,6 +40,11 @@ openvital trend weight --period weekly --last 8
 
 # Set a goal
 openvital goal set water --target 2000 --direction above --timeframe daily
+
+# Manage medications
+openvital med add ibuprofen --dose "400mg" --freq as_needed
+openvital med take ibuprofen
+openvital med status
 ```
 
 ## Commands
@@ -52,6 +57,7 @@ openvital goal set water --target 2000 --direction above --timeframe daily
 | `trend <type>` | Trend analysis with period bucketing |
 | `trend --correlate a,b` | Pearson correlation between two metrics |
 | `goal set/status/remove` | Goal management |
+| `med add/take/list/status` | Medication management |
 | `status` | Daily overview with streaks and pain alerts |
 | `report` | Period reports (week/month/custom) |
 | `export` | Export to CSV/JSON |
@@ -107,6 +113,7 @@ openvital report --period week
 | Nutrition | `calories_in`, `water` |
 | Pain | `pain`, `soreness` |
 | Habit | `standing_breaks`, `screen_time` |
+| Medication | Managed via `med` command (e.g., `ibuprofen`) |
 
 Custom types are accepted — the tool does not reject unknown types. Aliases are configurable (e.g., `w` → `weight`, `p` → `pain`).
 
