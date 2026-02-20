@@ -1,0 +1,111 @@
+name: Jules Event Pipelines
+
+on:
+  pull_request:
+    types: [opened, synchronize, closed]
+    branches: [master]
+  issues:
+    types: [opened]
+
+concurrency:
+  group: jules-events-${{ github.event_name }}-${{ github.event.number || github.event.issue.number }}
+  cancel-in-progress: false
+
+env:
+  JULES_API_URL: https://jules.googleapis.com/v1alpha
+  JULES_SOURCE: sources/github/64andrewwalker/openvital
+
+jobs:
+  # Pipeline 1: Doc Sync (on PR merge)
+  doc-sync:
+    if: >
+      github.event_name == 'pull_request' &&
+      github.event.action == 'closed' &&
+      github.event.pull_request.merged == true &&
+      !startsWith(github.event.pull_request.title, '[jules-')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create Jules doc-sync session
+        env:
+          JULES_API_KEY: ${{ secrets.JULES_API_KEY }}
+        run: |
+          source .github/jules-prompts/helpers.sh
+          jules_create_session \
+            .github/jules-prompts/doc-sync.txt \
+            "[jules-docs] Sync docs for PR #${{ github.event.pull_request.number }}" \
+            "master"
+
+      - name: Create jules-error issue on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue create \
+            --title "[jules-error] doc-sync failed for PR #${{ github.event.pull_request.number }}" \
+            --body "The doc-sync pipeline failed. [View run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})" \
+            --label "jules-error"
+
+  # Pipeline 2: PR Review (on PR open/update)
+  pr-review:
+    if: >
+      github.event_name == 'pull_request' &&
+      (github.event.action == 'opened' || github.event.action == 'synchronize') &&
+      !startsWith(github.event.pull_request.title, '[jules-') &&
+      !startsWith(github.event.pull_request.title, 'chore(release)') &&
+      !startsWith(github.event.pull_request.title, 'release-please')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create Jules review session
+        env:
+          JULES_API_KEY: ${{ secrets.JULES_API_KEY }}
+        run: |
+          source .github/jules-prompts/helpers.sh
+          jules_create_session \
+            .github/jules-prompts/pr-review.txt \
+            "Review PR #${{ github.event.pull_request.number }}" \
+            "${{ github.event.pull_request.head.ref }}" \
+            ""
+
+      - name: Create jules-error issue on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue create \
+            --title "[jules-error] pr-review failed for PR #${{ github.event.pull_request.number }}" \
+            --body "The pr-review pipeline failed. [View run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})" \
+            --label "jules-error"
+
+  # Pipeline 3: Issue AutoFix (on issue create, excluding Jules-created issues)
+  # Primary defense: jules-created label. Secondary: actor name check.
+  # If Jules actor name changes, update the actor list below.
+  issue-autofix:
+    if: >
+      github.event_name == 'issues' &&
+      github.event.action == 'opened' &&
+      !contains(github.event.issue.labels.*.name, 'jules-created') &&
+      github.actor != 'jules-bot' &&
+      github.actor != 'jules[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create Jules autofix session
+        env:
+          JULES_API_KEY: ${{ secrets.JULES_API_KEY }}
+        run: |
+          source .github/jules-prompts/helpers.sh
+          jules_create_session \
+            .github/jules-prompts/issue-autofix.txt \
+            "Assess issue #${{ github.event.issue.number }}" \
+            "master"
+      - name: Create jules-error issue on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue create \
+            --title "[jules-error] issue-autofix failed for issue #${{ github.event.issue.number }}" \
+            --body "The issue-autofix pipeline failed. [View run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})" \
+            --label "jules-error"

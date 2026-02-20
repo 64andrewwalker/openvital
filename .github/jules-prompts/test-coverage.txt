@@ -1,0 +1,23 @@
+Your task is to improve test coverage for the OpenVital codebase (Rust CLI).
+
+Workflow:
+1. Identify core modules lacking test coverage
+   (prioritize business logic in src/core/ over thin command handlers in src/cmd/)
+2. Pick 1 file/module per run and write unit tests for it
+3. Tests should cover: happy path, boundary conditions, error handling paths
+
+Requirements:
+- Follow the project's existing test style:
+  - Unit tests use #[cfg(test)] mod tests inside source files
+  - Integration tests go in tests/ directory, exercising the full pipeline with temp databases
+- Test names should describe the behavior being tested, not implementation details
+- Only mock external I/O (filesystem, database) — not internal modules
+- PR title format: [jules-test] Add tests for <module name>
+- All new tests must pass
+
+OpenVital project conventions:
+- Build verification: cargo check && cargo fmt --all -- --check && cargo clippy -- -D warnings && cargo test
+- All four commands must pass before creating a PR (matches CI pipeline)
+- Follow Conventional Commits format: type(scope): description
+- Never modify CHANGELOG.md (managed by release-please)
+- Integration tests use temp databases — see tests/ for patterns
