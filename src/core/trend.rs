@@ -275,9 +275,10 @@ pub fn correlate(
         && entries_a
             .first()
             .is_some_and(|e| e.category == Category::Medication);
-    let is_med_b = entries_b
-        .first()
-        .is_some_and(|e| e.category == Category::Medication);
+    let is_med_b = !has_non_med_b
+        && entries_b
+            .first()
+            .is_some_and(|e| e.category == Category::Medication);
 
     // Group by date, compute daily values (sum for medications, average otherwise)
     let avg_a = daily_values(&entries_a, is_med_a);

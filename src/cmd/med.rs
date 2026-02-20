@@ -90,7 +90,7 @@ pub fn run_take(
             .map(String::from)
             .or(medication.dose.clone())
             .unwrap_or_else(|| "1 dose".to_string());
-        let ts = metric.timestamp.format("%Y-%m-%d %H:%M");
+        let ts = metric.timestamp.format("%b %d, %Y %H:%M");
         println!(
             "{}",
             openvital::output::human::format_med_take(
