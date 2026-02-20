@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.4.0](https://github.com/64andrewwalker/openvital/compare/v0.3.1...v0.4.0) (2026-02-20)
+
+
+### Features
+
+* **med:** add medication management feature ([2edf01c](https://github.com/64andrewwalker/openvital/commit/2edf01c4a94ddc51cd2d3f9cb4cc2ad3019a8e95))
+* **med:** add Medication, Frequency, Route models with dose parsing ([6073e97](https://github.com/64andrewwalker/openvital/commit/6073e9704c24981c99532559289a4b954b9c4b01))
+* **med:** add medications table migration and CRUD operations ([768eca6](https://github.com/64andrewwalker/openvital/commit/768eca6179bfc1087632c6f8a2439bd4dc1d517f))
+* **med:** integrate medications with trend, goal, status, and export ([3a80b0e](https://github.com/64andrewwalker/openvital/commit/3a80b0e69294538a40fea9d01d54b3ad9ba9ffb4))
+
+
+### Bug Fixes
+
+* **med:** add overall adherence footer and migration tests ([dba744f](https://github.com/64andrewwalker/openvital/commit/dba744f165700329af3309fd46719621a0e0f56f))
+* **med:** add remove confirmation and stopped take warning ([9c87001](https://github.com/64andrewwalker/openvital/commit/9c8700120423ea65b77487c182cf53ecbe205ccc))
+* **med:** align adherence, correlation, and goal logic with design spec ([e8f9b0b](https://github.com/64andrewwalker/openvital/commit/e8f9b0b4ddb346b3f0d73ffba821994d823dd71a))
+* **med:** align med status JSON output with design spec ([9c08b93](https://github.com/64andrewwalker/openvital/commit/9c08b938512b84cd7d6ed4aae651d0359576dd5c))
+* **med:** resolve name collision, weekly adherence, status format, and list header ([562de39](https://github.com/64andrewwalker/openvital/commit/562de3900b534377c0dbe80b3b48fa7ff5b97828))
+
 ## [0.3.1](https://github.com/64andrewwalker/openvital/compare/v0.3.0...v0.3.1) (2026-02-19)
 
 
