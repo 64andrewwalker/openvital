@@ -33,7 +33,6 @@ src/
 │   ├── goal.rs     # goal set/status/remove
 │   ├── init.rs     # init profile
 │   ├── log.rs      # log single + batch
-│   ├── med.rs      # medication add/take/list/stop
 │   ├── report.rs   # period reports (week/month/custom)
 │   ├── show.rs     # show entries
 │   ├── status.rs   # daily status overview
@@ -42,7 +41,6 @@ src/
 │   ├── export.rs   # to_csv, to_json, import_json, import_csv
 │   ├── goal.rs     # set_goal, remove_goal, goal_status
 │   ├── logging.rs  # log_metric(LogEntry), log_batch()
-│   ├── med.rs      # add/take/list/stop/remove/status medication
 │   ├── query.rs    # show() → ShowResult enum
 │   ├── report.rs   # generate() → ReportResult
 │   ├── status.rs   # compute(), compute_streaks(), check_consecutive_pain()
@@ -51,12 +49,10 @@ src/
 │   ├── mod.rs      # Database struct (rusqlite Connection wrapper)
 │   ├── migrate.rs  # Schema creation + indexes (metrics + goals tables)
 │   ├── metrics.rs  # insert, query_by_type/date/range/all, distinct_entry_dates
-│   ├── goals.rs    # insert/list/get/remove goals
-│   └── meds.rs     # insert/list/get/remove medications + intake logs
+│   └── goals.rs    # insert/list/get/remove goals
 ├── models/
 │   ├── metric.rs   # Metric, Category, default_unit()
 │   ├── goal.rs     # Goal, Direction, Timeframe with FromStr traits
-│   ├── med.rs      # Medication, MedIntake, Frequency
 │   └── config.rs   # Config, Profile, Units, Alerts + load/save/aliases
 └── output/
     ├── mod.rs      # JSON envelope: success(), error()
@@ -98,9 +94,8 @@ All commands default to JSON with a standard envelope:
 | `goal set/status/remove` | Goal management |
 | `status` | Daily overview with streaks, pain alerts |
 | `report` | Period reports (week/month/custom range) |
-| `export` | Export to CSV/JSON (use `--with-medications` to include meds) |
+| `export` | Export to CSV/JSON |
 | `import` | Import from CSV/JSON |
-| `med add/take/list...` | Medication management |
 | `config show/set` | Configuration management |
 | `completions <shell>` | Shell completions (bash/zsh/fish) |
 
