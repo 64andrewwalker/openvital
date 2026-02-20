@@ -101,18 +101,28 @@ All commands default to JSON with a standard envelope:
 
 Global flags: `--human/-H`, `--quiet/-q`, `--date`, `--config`
 
-## Development Workflow: BDD + TDD
+## Development Workflow: BDD + TDD (MANDATORY)
+
+**No production code without a failing test first.** This is non-negotiable for all code changes — features, bug fixes, refactors. Code submitted without corresponding tests will be rejected.
 
 When developing features or fixing bugs, follow **BDD (Behavior-Driven Development)** combined with **TDD (Test-Driven Development)**:
 
 1. **Define behavior first** — Write acceptance-level tests (integration tests in `tests/`) that describe the expected behavior from the user/agent perspective. Use the CLI binary or `core/` public API as the test surface.
-2. **Red** — Run the tests, confirm they fail.
-3. **Green** — Implement the minimum code in `core/` and `db/` to make the tests pass.
-4. **Refactor** — Clean up while keeping tests green.
+2. **Red** — Run the tests, confirm they fail for the expected reason (missing feature, not a typo).
+3. **Green** — Implement the minimum code in `core/` and `db/` to make the tests pass. Nothing more.
+4. **Refactor** — Clean up while keeping tests green. Do not add behavior during refactor.
+
+**Rules:**
+- Every new function/method must have a test
+- Bug fixes must include a regression test that reproduces the bug
+- Watch each test fail before implementing — if a test passes immediately, it tests nothing useful
+- Write minimal code to pass — do not anticipate future requirements
+- Shell scripts (`.sh`) must have test scripts (`test-*.sh`) exercising key behaviors
 
 Test organization:
 - **Integration tests** — `tests/` directory, exercising the full pipeline (db → core → output) with a temp database
 - **Unit tests** — `#[cfg(test)] mod tests` inside source files for pure logic
+- **Shell tests** — `test-*.sh` scripts alongside shell scripts, mocking external dependencies
 
 ## Conventions
 
