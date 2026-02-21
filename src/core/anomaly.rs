@@ -32,7 +32,14 @@ pub fn detect(
     let mut clean_types = Vec::new();
 
     for metric in &types_to_scan {
-        let entries = db.query_all(Some(metric), Some(baseline_start), Some(today))?;
+        // Widen the query by ±1 day to capture entries near day boundaries
+        // (UTC storage vs local timezone). In-memory filters below use local
+        // timezone for correct classification.
+        let entries = db.query_all(
+            Some(metric),
+            Some(baseline_start - Duration::days(1)),
+            Some(today + Duration::days(1)),
+        )?;
 
         if entries.len() < MIN_DATA_POINTS {
             continue;
@@ -40,10 +47,13 @@ pub fn detect(
 
         scanned_types.push(metric.clone());
 
-        // Separate today's entries from baseline
+        // Separate today's entries from baseline (filter by local date)
         let baseline_values: Vec<f64> = entries
             .iter()
-            .filter(|e| e.timestamp.with_timezone(&Local).date_naive() < today)
+            .filter(|e| {
+                let d = e.timestamp.with_timezone(&Local).date_naive();
+                d >= baseline_start && d < today
+            })
             .map(|e| e.value)
             .collect();
 

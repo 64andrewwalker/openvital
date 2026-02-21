@@ -10,8 +10,11 @@ pub fn run(days: u32, types: Option<&str>, human_flag: bool) -> Result<()> {
     let config = Config::load()?;
     let db = Database::open(&Config::db_path())?;
 
-    let type_filter: Option<Vec<&str>> = types.map(|t| t.split(',').collect());
-    let type_refs: Option<&[&str]> = type_filter.as_deref();
+    let type_filter: Option<Vec<String>> =
+        types.map(|t| t.split(',').map(|s| config.resolve_alias(s.trim())).collect());
+    let type_refs: Option<Vec<&str>> =
+        type_filter.as_ref().map(|v| v.iter().map(|s| s.as_str()).collect());
+    let type_refs: Option<&[&str]> = type_refs.as_deref();
 
     let result = context::compute(&db, &config, days, type_refs)?;
 

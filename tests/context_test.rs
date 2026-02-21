@@ -200,6 +200,41 @@ fn test_context_pain_alert_included() {
 }
 
 #[test]
+fn test_context_trend_limited_to_window() {
+    let (_dir, db) = common::setup_db();
+    let config = make_test_config();
+    let today = Local::now().date_naive();
+
+    // Old data outside 7-day window: high values
+    db.insert_metric(&common::make_metric("weight", 100.0, today - Duration::days(30)))
+        .unwrap();
+    db.insert_metric(&common::make_metric("weight", 95.0, today - Duration::days(20)))
+        .unwrap();
+
+    // Recent data within 7-day window: stable low values
+    db.insert_metric(&common::make_metric("weight", 80.0, today - Duration::days(3)))
+        .unwrap();
+    db.insert_metric(&common::make_metric("weight", 80.0, today - Duration::days(1)))
+        .unwrap();
+
+    let result = context::compute(&db, &config, 7, None).unwrap();
+
+    let weight = &result.metrics["weight"];
+    // Stats should only count 2 entries within the 7-day window
+    assert_eq!(
+        weight.stats.count, 2,
+        "should only count entries within the 7-day window"
+    );
+    // Trend should be "stable" (both values are 80.0 within the window)
+    // Before fix: trend was "decreasing" because old 100/95 entries were included
+    assert_eq!(
+        weight.trend.as_ref().unwrap().direction,
+        "stable",
+        "trend should only use entries within the time window"
+    );
+}
+
+#[test]
 fn test_context_multiple_days_of_data() {
     let (_dir, db) = common::setup_db();
     let config = make_test_config();

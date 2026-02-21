@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use anyhow::Result;
 use chrono::{Duration, Local};
@@ -6,7 +6,6 @@ use serde::Serialize;
 
 use crate::core::anomaly;
 use crate::core::status;
-use crate::core::trend::TrendPeriod;
 use crate::db::Database;
 use crate::models::anomaly::{Anomaly, Threshold};
 use crate::models::config::Config;
@@ -122,7 +121,17 @@ pub fn compute(
     // 2. Build per-metric context
     let mut metrics = HashMap::new();
     for metric_type in &types {
-        let entries = db.query_all(Some(metric_type), Some(start_date), Some(today))?;
+        // Widen query by ±1 day to capture entries near day boundaries
+        // (UTC storage vs local timezone), then filter in-memory.
+        let raw_entries =
+            db.query_all(Some(metric_type), Some(start_date - Duration::days(1)), Some(today + Duration::days(1)))?;
+        let entries: Vec<_> = raw_entries
+            .into_iter()
+            .filter(|e| {
+                let d = e.timestamp.with_timezone(&Local).date_naive();
+                d >= start_date && d <= today
+            })
+            .collect();
         if entries.is_empty() {
             continue;
         }
@@ -148,16 +157,10 @@ pub fn compute(
             count,
         };
 
-        // Compute trend if enough data
+        // Compute trend from windowed entries only (not via trend::compute
+        // which fetches all history and limits by period count, not date).
         let trend = if count >= 2 {
-            match crate::core::trend::compute(db, metric_type, TrendPeriod::Daily, Some(days)) {
-                Ok(t) => Some(TrendInfo {
-                    direction: t.trend.direction.clone(),
-                    rate: t.trend.rate,
-                    rate_unit: t.trend.rate_unit.clone(),
-                }),
-                Err(_) => None,
-            }
+            Some(compute_windowed_trend(&entries))
         } else {
             None
         };
@@ -269,7 +272,12 @@ pub fn compute(
 
     // 6. Alerts
     let mut alerts = Vec::new();
-    let today_entries = db.query_by_date(today)?;
+    // Widen by ±1 day for timezone safety, then filter in-memory
+    let today_entries_raw = db.query_by_date_range(today - Duration::days(1), today + Duration::days(1))?;
+    let today_entries: Vec<_> = today_entries_raw
+        .into_iter()
+        .filter(|e| e.timestamp.with_timezone(&Local).date_naive() == today)
+        .collect();
     let threshold = config.alerts.pain_threshold as f64;
     for entry in &today_entries {
         if (entry.metric_type == "pain" || entry.metric_type == "soreness")
@@ -330,6 +338,49 @@ pub fn compute(
         alerts,
         anomalies,
     })
+}
+
+/// Compute trend direction and rate from entries already filtered to the time window.
+fn compute_windowed_trend(entries: &[crate::models::metric::Metric]) -> TrendInfo {
+    let mut day_data: BTreeMap<chrono::NaiveDate, (f64, u32)> = BTreeMap::new();
+    for e in entries {
+        let date = e.timestamp.with_timezone(&Local).date_naive();
+        let entry = day_data.entry(date).or_insert((0.0, 0));
+        entry.0 += e.value;
+        entry.1 += 1;
+    }
+    let avgs: Vec<f64> = day_data.values().map(|(sum, cnt)| sum / *cnt as f64).collect();
+
+    if avgs.len() < 2 {
+        return TrendInfo {
+            direction: "stable".to_string(),
+            rate: 0.0,
+            rate_unit: "per day".to_string(),
+        };
+    }
+
+    let n = avgs.len() as f64;
+    let xs: Vec<f64> = (0..avgs.len()).map(|i| i as f64).collect();
+    let sum_x: f64 = xs.iter().sum();
+    let sum_y: f64 = avgs.iter().sum();
+    let sum_xy: f64 = xs.iter().zip(avgs.iter()).map(|(x, y)| x * y).sum();
+    let sum_xx: f64 = xs.iter().map(|x| x * x).sum();
+    let slope = (n * sum_xy - sum_x * sum_y) / (n * sum_xx - sum_x * sum_x);
+
+    let direction = if slope < -0.01 {
+        "decreasing"
+    } else if slope > 0.01 {
+        "increasing"
+    } else {
+        "stable"
+    };
+    let rate = (slope * 10.0).round() / 10.0;
+
+    TrendInfo {
+        direction: direction.to_string(),
+        rate,
+        rate_unit: "per day".to_string(),
+    }
 }
 
 fn generate_metric_summary(
