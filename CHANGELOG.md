@@ -1,32 +1,5 @@
 # Changelog
 
-## [0.5.0](https://github.com/64andrewwalker/openvital/compare/v0.4.2...v0.5.0) (2026-02-21)
-
-
-### Features
-
-* add AI health context briefing and anomaly detection ([#26](https://github.com/64andrewwalker/openvital/issues/26)) ([f6dad06](https://github.com/64andrewwalker/openvital/commit/f6dad0636d71f6db1aeb435f0bccad2748c995cc))
-
-## [0.4.2](https://github.com/64andrewwalker/openvital/compare/v0.4.1...v0.4.2) (2026-02-20)
-
-
-### Bug Fixes
-
-* **med:** align implementation with design spec ([753ded5](https://github.com/64andrewwalker/openvital/commit/753ded5d434095af8eee00db440a1a27ef185bda))
-* **security:** enforce 0600/0700 permissions on config and database ([934f9af](https://github.com/64andrewwalker/openvital/commit/934f9afe8dea2ad79cc823076f60cb03b0cb22ba))
-
-
-### Performance Improvements
-
-* **status:** optimize N+1 query in pain alert check ([46057f7](https://github.com/64andrewwalker/openvital/commit/46057f73af28d5b0aaa016d363625fd901beb0f6))
-
-## [0.4.1](https://github.com/64andrewwalker/openvital/compare/v0.4.0...v0.4.1) (2026-02-20)
-
-
-### Bug Fixes
-
-* **jules:** security hardening and TDD enforcement ([#14](https://github.com/64andrewwalker/openvital/issues/14)) ([a510382](https://github.com/64andrewwalker/openvital/commit/a510382fddee7b5842450228066f227cefef587b))
-
 ## [0.4.0](https://github.com/64andrewwalker/openvital/compare/v0.3.1...v0.4.0) (2026-02-20)
 
 

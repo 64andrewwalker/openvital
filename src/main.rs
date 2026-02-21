@@ -147,12 +147,6 @@ fn main() {
                 cmd::med::run_status(name.as_deref(), last, cli.human)
             }
         },
-        Commands::Anomaly {
-            r#type,
-            days,
-            threshold,
-        } => cmd::anomaly::run(r#type.as_deref(), days, &threshold, cli.human),
-        Commands::Context { days, types } => cmd::context::run(days, types.as_deref(), cli.human),
         Commands::Completions { shell } => {
             cli::print_completions(shell);
             Ok(())

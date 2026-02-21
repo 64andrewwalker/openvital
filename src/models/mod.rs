@@ -1,4 +1,3 @@
-pub mod anomaly;
 pub mod config;
 pub mod goal;
 pub mod med;

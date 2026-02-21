@@ -91,7 +91,7 @@ pub fn add_medication(
             let msg = e.to_string();
             if msg.contains("UNIQUE") || msg.contains("unique") || msg.contains("constraint") {
                 bail!(
-                    "Medication '{}' is already active. Use `med stop` first, then `med add` to restart with new settings.",
+                    "Medication '{}' is already active. Stop it first before re-adding.",
                     params.name
                 );
             }
