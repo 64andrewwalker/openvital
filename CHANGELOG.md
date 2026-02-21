@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/64andrewwalker/openvital/compare/v0.4.2...v0.5.0) (2026-02-21)
+
+
+### Features
+
+* add AI health context briefing and anomaly detection ([#26](https://github.com/64andrewwalker/openvital/issues/26)) ([f6dad06](https://github.com/64andrewwalker/openvital/commit/f6dad0636d71f6db1aeb435f0bccad2748c995cc))
+
 ## [0.4.2](https://github.com/64andrewwalker/openvital/compare/v0.4.1...v0.4.2) (2026-02-20)
 
 
