@@ -1,4 +1,6 @@
+pub mod anomaly;
 pub mod config;
+pub mod context;
 pub mod export;
 pub mod goal;
 pub mod init;
