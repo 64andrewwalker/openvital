@@ -248,17 +248,4 @@ impl Database {
         }
         Ok(dates)
     }
-
-    /// Get distinct metric types that have entries, ordered alphabetically.
-    pub fn distinct_metric_types(&self) -> Result<Vec<String>> {
-        let mut stmt = self
-            .conn
-            .prepare("SELECT DISTINCT type FROM metrics ORDER BY type ASC")?;
-        let rows = stmt.query_map([], |row| row.get::<_, String>(0))?;
-        let mut types = Vec::new();
-        for row in rows {
-            types.push(row?);
-        }
-        Ok(types)
-    }
 }

@@ -183,31 +183,6 @@ pub enum Commands {
         action: MedAction,
     },
 
-    /// Detect anomalous health readings against personal baselines
-    Anomaly {
-        /// Metric type to check (all if omitted)
-        r#type: Option<String>,
-
-        /// Baseline window in days (default: 30)
-        #[arg(long, default_value = "30")]
-        days: u32,
-
-        /// Sensitivity: relaxed, moderate, strict (default: moderate)
-        #[arg(long, default_value = "moderate")]
-        threshold: String,
-    },
-
-    /// AI health briefing — complete health state in one response
-    Context {
-        /// Lookback window in days (default: 7)
-        #[arg(long, default_value = "7")]
-        days: u32,
-
-        /// Filter to specific metric types (comma-separated)
-        #[arg(long)]
-        types: Option<String>,
-    },
-
     /// Generate shell completions
     Completions {
         /// Shell to generate completions for

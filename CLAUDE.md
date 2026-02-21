@@ -101,28 +101,18 @@ All commands default to JSON with a standard envelope:
 
 Global flags: `--human/-H`, `--quiet/-q`, `--date`, `--config`
 
-## Development Workflow: BDD + TDD (MANDATORY)
-
-**No production code without a failing test first.** This is non-negotiable for all code changes — features, bug fixes, refactors. Code submitted without corresponding tests will be rejected.
+## Development Workflow: BDD + TDD
 
 When developing features or fixing bugs, follow **BDD (Behavior-Driven Development)** combined with **TDD (Test-Driven Development)**:
 
 1. **Define behavior first** — Write acceptance-level tests (integration tests in `tests/`) that describe the expected behavior from the user/agent perspective. Use the CLI binary or `core/` public API as the test surface.
-2. **Red** — Run the tests, confirm they fail for the expected reason (missing feature, not a typo).
-3. **Green** — Implement the minimum code in `core/` and `db/` to make the tests pass. Nothing more.
-4. **Refactor** — Clean up while keeping tests green. Do not add behavior during refactor.
-
-**Rules:**
-- Every new function/method must have a test
-- Bug fixes must include a regression test that reproduces the bug
-- Watch each test fail before implementing — if a test passes immediately, it tests nothing useful
-- Write minimal code to pass — do not anticipate future requirements
-- Shell scripts (`.sh`) must have test scripts (`test-*.sh`) exercising key behaviors
+2. **Red** — Run the tests, confirm they fail.
+3. **Green** — Implement the minimum code in `core/` and `db/` to make the tests pass.
+4. **Refactor** — Clean up while keeping tests green.
 
 Test organization:
 - **Integration tests** — `tests/` directory, exercising the full pipeline (db → core → output) with a temp database
 - **Unit tests** — `#[cfg(test)] mod tests` inside source files for pure logic
-- **Shell tests** — `test-*.sh` scripts alongside shell scripts, mocking external dependencies
 
 ## Conventions
 
@@ -133,25 +123,11 @@ Test organization:
 - `FromStr` trait for enums parsed from CLI strings (Direction, Timeframe, TrendPeriod)
 - New commands: add variant to `Commands` enum in `cli.rs`, handler in `cmd/`, logic in `core/`
 - Release via [Conventional Commits](https://www.conventionalcommits.org/) → release-please automates versioning
-- **Never push directly to main** — always create a feature branch and open a PR. CI must pass before merging.
+- **Never push directly to master** — always create a feature branch and open a PR. CI must pass before merging.
 
 ## Commit Format
 
 `type(scope): description` — e.g., `feat(trend): add moving average support`
-
-## PR Review Default Process
-
-When the user sends PR links/lists for review, execute end-to-end review by default — don't stop at suggestions.
-
-**Three mandatory checks:**
-1. Does the PR actually solve the stated problem?
-2. Are the changes sound (regression risk, maintainability, test coverage)?
-3. Can it merge as-is, or must changes be made first?
-
-**Action rules:**
-- **Blocking issues found** — leave blocking comments on the PR (specify file, risk, conclusion). Do NOT merge.
-- **Only minor issues** — fix directly on the PR branch, add/fix tests, verify CI passes, then merge.
-- **Review conclusion must include:** per-PR disposition (merge / changes requested) with key rationale.
 
 ## Spec Reference
 
