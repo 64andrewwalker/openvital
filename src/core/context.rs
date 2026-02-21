@@ -123,8 +123,11 @@ pub fn compute(
     for metric_type in &types {
         // Widen query by ±1 day to capture entries near day boundaries
         // (UTC storage vs local timezone), then filter in-memory.
-        let raw_entries =
-            db.query_all(Some(metric_type), Some(start_date - Duration::days(1)), Some(today + Duration::days(1)))?;
+        let raw_entries = db.query_all(
+            Some(metric_type),
+            Some(start_date - Duration::days(1)),
+            Some(today + Duration::days(1)),
+        )?;
         let entries: Vec<_> = raw_entries
             .into_iter()
             .filter(|e| {
@@ -273,7 +276,8 @@ pub fn compute(
     // 6. Alerts
     let mut alerts = Vec::new();
     // Widen by ±1 day for timezone safety, then filter in-memory
-    let today_entries_raw = db.query_by_date_range(today - Duration::days(1), today + Duration::days(1))?;
+    let today_entries_raw =
+        db.query_by_date_range(today - Duration::days(1), today + Duration::days(1))?;
     let today_entries: Vec<_> = today_entries_raw
         .into_iter()
         .filter(|e| e.timestamp.with_timezone(&Local).date_naive() == today)
@@ -349,7 +353,10 @@ fn compute_windowed_trend(entries: &[crate::models::metric::Metric]) -> TrendInf
         entry.0 += e.value;
         entry.1 += 1;
     }
-    let avgs: Vec<f64> = day_data.values().map(|(sum, cnt)| sum / *cnt as f64).collect();
+    let avgs: Vec<f64> = day_data
+        .values()
+        .map(|(sum, cnt)| sum / *cnt as f64)
+        .collect();
 
     if avgs.len() < 2 {
         return TrendInfo {

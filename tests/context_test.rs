@@ -206,16 +206,32 @@ fn test_context_trend_limited_to_window() {
     let today = Local::now().date_naive();
 
     // Old data outside 7-day window: high values
-    db.insert_metric(&common::make_metric("weight", 100.0, today - Duration::days(30)))
-        .unwrap();
-    db.insert_metric(&common::make_metric("weight", 95.0, today - Duration::days(20)))
-        .unwrap();
+    db.insert_metric(&common::make_metric(
+        "weight",
+        100.0,
+        today - Duration::days(30),
+    ))
+    .unwrap();
+    db.insert_metric(&common::make_metric(
+        "weight",
+        95.0,
+        today - Duration::days(20),
+    ))
+    .unwrap();
 
     // Recent data within 7-day window: stable low values
-    db.insert_metric(&common::make_metric("weight", 80.0, today - Duration::days(3)))
-        .unwrap();
-    db.insert_metric(&common::make_metric("weight", 80.0, today - Duration::days(1)))
-        .unwrap();
+    db.insert_metric(&common::make_metric(
+        "weight",
+        80.0,
+        today - Duration::days(3),
+    ))
+    .unwrap();
+    db.insert_metric(&common::make_metric(
+        "weight",
+        80.0,
+        today - Duration::days(1),
+    ))
+    .unwrap();
 
     let result = context::compute(&db, &config, 7, None).unwrap();
 
