@@ -36,6 +36,7 @@ OpenVital is designed for people who:
 - Want to own their data locally, not in a cloud service
 
 Key scenarios:
+
 - Weight management and body composition tracking
 - Exercise habit building (any type: gym, rhythm games, walking, etc.)
 - Sleep tracking
@@ -67,24 +68,24 @@ Metric {
 
 ### 3.2 Built-in Metric Types
 
-| Category | Type | Unit | Description |
-|----------|------|------|-------------|
-| body | weight | kg | Body weight |
-| body | body_fat | % | Body fat percentage |
-| body | waist | cm | Waist circumference |
-| exercise | cardio | min | Cardio exercise duration |
-| exercise | strength | min | Strength training duration |
-| exercise | calories_burned | kcal | Estimated calories burned |
-| sleep | sleep_hours | hours | Total sleep duration |
-| sleep | sleep_quality | 1-5 | Subjective sleep quality |
-| sleep | bed_time | HH:MM | Time went to bed |
-| sleep | wake_time | HH:MM | Time woke up |
-| nutrition | calories_in | kcal | Total calorie intake |
-| nutrition | water | ml | Water intake |
-| pain | pain | 0-10 | General pain level (use tags for location) |
-| pain | soreness | 0-10 | General body soreness |
-| habit | standing_breaks | count | Standing/stretching breaks taken |
-| habit | screen_time | hours | Total screen time |
+| Category  | Type            | Unit  | Description                                |
+| --------- | --------------- | ----- | ------------------------------------------ |
+| body      | weight          | kg    | Body weight                                |
+| body      | body_fat        | %     | Body fat percentage                        |
+| body      | waist           | cm    | Waist circumference                        |
+| exercise  | cardio          | min   | Cardio exercise duration                   |
+| exercise  | strength        | min   | Strength training duration                 |
+| exercise  | calories_burned | kcal  | Estimated calories burned                  |
+| sleep     | sleep_hours     | hours | Total sleep duration                       |
+| sleep     | sleep_quality   | 1-5   | Subjective sleep quality                   |
+| sleep     | bed_time        | HH:MM | Time went to bed                           |
+| sleep     | wake_time       | HH:MM | Time woke up                               |
+| nutrition | calories_in     | kcal  | Total calorie intake                       |
+| nutrition | water           | ml    | Water intake                               |
+| pain      | pain            | 0-10  | General pain level (use tags for location) |
+| pain      | soreness        | 0-10  | General body soreness                      |
+| habit     | standing_breaks | count | Standing/stretching breaks taken           |
+| habit     | screen_time     | hours | Total screen time                          |
 
 Users can define custom types at any time. The tool does not reject unknown types.
 
@@ -103,6 +104,7 @@ Goal {
 ```
 
 Example goals:
+
 - weight below 75kg (monthly check)
 - cardio above 150min (weekly)
 - water above 2000ml (daily)
@@ -119,6 +121,7 @@ openvital <command> [subcommand] [args] [flags]
 ```
 
 Global flags:
+
 - `--json` (default): Output as JSON
 - `--human` / `-h`: Pretty-printed human-readable output
 - `--quiet` / `-q`: Minimal output (just confirmation or error)
@@ -150,6 +153,7 @@ openvital log --batch '[{"type":"weight","value":85.5},{"type":"water","value":2
 ```
 
 Output (JSON):
+
 ```json
 {
   "status": "ok",
@@ -200,13 +204,14 @@ openvital trend --correlate pain,screen_time --last 30
 ```
 
 Output (JSON):
+
 ```json
 {
   "type": "weight",
   "period": "weekly",
   "data": [
-    {"week": "2026-W01", "avg": 86.2, "min": 85.8, "max": 86.5, "count": 5},
-    {"week": "2026-W02", "avg": 85.8, "min": 85.5, "max": 86.1, "count": 6}
+    { "week": "2026-W01", "avg": 86.2, "min": 85.8, "max": 86.5, "count": 5 },
+    { "week": "2026-W02", "avg": 85.8, "min": 85.5, "max": 86.1, "count": 6 }
   ],
   "trend": {
     "direction": "decreasing",
@@ -244,6 +249,7 @@ openvital status
 ```
 
 Output (JSON):
+
 ```json
 {
   "date": "2026-02-17",
@@ -256,9 +262,7 @@ Output (JSON):
   "today": {
     "logged": ["weight", "water"],
     "missing": ["sleep_hours", "cardio"],
-    "pain_alerts": [
-      {"type": "pain", "value": 4, "tags": ["wrist", "left"]}
-    ]
+    "pain_alerts": [{ "type": "pain", "value": 4, "tags": ["wrist", "left"] }]
   },
   "goals": {
     "on_track": ["water"],
@@ -341,6 +345,71 @@ openvital import --source csv --file data.csv
 openvital import --source json --file data.json
 ```
 
+#### `openvital anomaly [type] [flags]`
+
+Detect statistical anomalies across metrics using the IQR (interquartile range) method.
+
+```bash
+# Detect anomalies across all metrics
+openvital anomaly
+
+# Detect anomalies for a specific metric type
+openvital anomaly weight
+
+# Adjust the lookback window
+openvital anomaly pain --days 30
+```
+
+Output (JSON):
+
+```json
+{
+  "status": "ok",
+  "command": "anomaly",
+  "data": {
+    "anomalies": [
+      {
+        "type": "weight",
+        "timestamp": "2026-02-10T08:00:00Z",
+        "value": 92.1,
+        "expected_range": [83.0, 88.5],
+        "severity": "high"
+      }
+    ]
+  }
+}
+```
+
+#### `openvital context [flags]`
+
+Generate a structured AI health briefing aggregating recent metrics, trends, active goals, medication schedule, and detected anomalies. Designed as a single-call input for an AI agent to produce personalised health advice.
+
+```bash
+# Full context briefing (default: last 7 days)
+openvital context
+
+# Extend the lookback window
+openvital context --days 30
+```
+
+Output (JSON):
+
+```json
+{
+  "status": "ok",
+  "command": "context",
+  "data": {
+    "generated_at": "2026-02-21T09:00:00Z",
+    "period_days": 7,
+    "recent_metrics": { ... },
+    "trends": { ... },
+    "goals": { ... },
+    "anomalies": [ ... ],
+    "medications": [ ... ]
+  }
+}
+```
+
 ---
 
 ## 5. Agent Integration Design
@@ -361,12 +430,15 @@ tools:
   - openvital goal
   - openvital status
   - openvital report
+  - openvital anomaly
+  - openvital context
 ---
 ```
 
 ### 5.2 Agent Workflow Examples
 
 **Daily check-in (agent-initiated):**
+
 ```bash
 # Agent calls this at configured time
 openvital status --json
@@ -375,18 +447,21 @@ openvital status --json
 ```
 
 **User says "I just exercised for 40 minutes":**
+
 ```bash
 # Agent translates natural language to CLI call
 openvital log cardio 40 --tags "running" --note "User reported via chat" --source agent
 ```
 
 **User asks "How's my weight trend?":**
+
 ```bash
 openvital trend weight --period weekly --last 8 --json
 # Agent formats the response conversationally
 ```
 
 **Weekly report (agent-scheduled via cron):**
+
 ```bash
 openvital report --period week --json
 # Agent generates a summary and sends to user
@@ -406,6 +481,7 @@ Every command returns JSON with a consistent envelope:
 ```
 
 Exit codes:
+
 - 0: Success
 - 1: General error
 - 2: Invalid arguments
@@ -434,19 +510,19 @@ Exit codes:
 
 Configurable in `config.toml`. Defaults:
 
-| Alias | Expands to |
-|-------|-----------|
-| w | weight |
-| bf | body_fat |
-| c | cardio |
-| s | strength |
-| sl | sleep_hours |
-| sq | sleep_quality |
-| wa | water |
-| p | pain |
-| so | soreness |
-| cal | calories_in |
-| st | screen_time |
+| Alias | Expands to    |
+| ----- | ------------- |
+| w     | weight        |
+| bf    | body_fat      |
+| c     | cardio        |
+| s     | strength      |
+| sl    | sleep_hours   |
+| sq    | sleep_quality |
+| wa    | water         |
+| p     | pain          |
+| so    | soreness      |
+| cal   | calories_in   |
+| st    | screen_time   |
 
 Users can add custom aliases in config.
 
@@ -498,6 +574,7 @@ openvital init
 ```
 
 Interactive setup that asks:
+
 - Height (cm)
 - Current weight (kg)
 - Birth year
@@ -539,6 +616,7 @@ The tool is successful if:
 ## 10. Implementation Priority
 
 ### Phase 1 (MVP)
+
 - [ ] `openvital init` — Profile setup
 - [ ] `openvital log` — Core logging (single + batch)
 - [ ] `openvital show` — Query entries
@@ -549,6 +627,7 @@ The tool is successful if:
 - [ ] JSON output (default) + human-readable flag
 
 ### Phase 2
+
 - [ ] `openvital trend` — Trend analysis with projections
 - [ ] `openvital goal` — Goal setting and tracking
 - [ ] `openvital report` — Period reports
@@ -556,10 +635,16 @@ The tool is successful if:
 - [ ] Pain alerts
 
 ### Phase 3
+
 - [ ] `openvital export` / `openvital import`
 - [ ] Correlation analysis (`--correlate`)
 - [ ] OpenClaw skill packaging
 - [ ] Shell completions (bash, zsh, fish)
+
+### Phase 4
+
+- [ ] `openvital anomaly` — IQR-based statistical anomaly detection across all logged metrics
+- [ ] `openvital context` — Aggregated AI health briefing (metrics, trends, goals, medications, anomalies)
 
 ---
 

@@ -34,10 +34,14 @@ src/
 │   ├── init.rs     # init profile
 │   ├── log.rs      # log single + batch
 │   ├── report.rs   # period reports (week/month/custom)
+│   ├── anomaly.rs  # IQR-based statistical anomaly detection
+│   ├── context.rs  # AI health briefing (metrics, trends, goals, meds, anomalies)
 │   ├── show.rs     # show entries
 │   ├── status.rs   # daily status overview
 │   └── trend.rs    # trend analysis + correlation
 ├── core/           # Pure business logic, no CLI/IO dependency
+│   ├── anomaly.rs  # detect() → AnomalyResult (IQR method)
+│   ├── context.rs  # build() → ContextResult (aggregated health briefing)
 │   ├── export.rs   # to_csv, to_json, import_json, import_csv
 │   ├── goal.rs     # set_goal, remove_goal, goal_status
 │   ├── logging.rs  # log_metric(LogEntry), log_batch()
@@ -51,6 +55,7 @@ src/
 │   ├── metrics.rs  # insert, query_by_type/date/range/all, distinct_entry_dates
 │   └── goals.rs    # insert/list/get/remove goals
 ├── models/
+│   ├── anomaly.rs  # AnomalyResult, AnomalyEntry with detected outlier data
 │   ├── metric.rs   # Metric, Category, default_unit()
 │   ├── goal.rs     # Goal, Direction, Timeframe with FromStr traits
 │   └── config.rs   # Config, Profile, Units, Alerts + load/save/aliases
@@ -84,20 +89,22 @@ All commands default to JSON with a standard envelope:
 
 ## CLI Commands
 
-| Command                  | Description                              |
-| ------------------------ | ---------------------------------------- |
-| `init`                   | Profile setup                            |
-| `log <type> <value>`     | Log metric entry (single or `--batch`)   |
-| `show [type]`            | Show metric history                      |
-| `trend <type>`           | Trend analysis with period bucketing     |
-| `trend --correlate a,b`  | Pearson correlation between two metrics  |
-| `goal set/status/remove` | Goal management                          |
-| `status`                 | Daily overview with streaks, pain alerts |
-| `report`                 | Period reports (week/month/custom range) |
-| `export`                 | Export to CSV/JSON                       |
-| `import`                 | Import from CSV/JSON                     |
-| `config show/set`        | Configuration management                 |
-| `completions <shell>`    | Shell completions (bash/zsh/fish)        |
+| Command                  | Description                                                  |
+| ------------------------ | ------------------------------------------------------------ |
+| `init`                   | Profile setup                                                |
+| `log <type> <value>`     | Log metric entry (single or `--batch`)                       |
+| `show [type]`            | Show metric history                                          |
+| `trend <type>`           | Trend analysis with period bucketing                         |
+| `trend --correlate a,b`  | Pearson correlation between two metrics                      |
+| `goal set/status/remove` | Goal management                                              |
+| `status`                 | Daily overview with streaks, pain alerts                     |
+| `report`                 | Period reports (week/month/custom range)                     |
+| `export`                 | Export to CSV/JSON                                           |
+| `import`                 | Import from CSV/JSON                                         |
+| `anomaly [type]`         | IQR-based statistical anomaly detection                      |
+| `context`                | AI health briefing (metrics, trends, goals, meds, anomalies) |
+| `config show/set`        | Configuration management                                     |
+| `completions <shell>`    | Shell completions (bash/zsh/fish)                            |
 
 Global flags: `--human/-H`, `--quiet/-q`, `--date`, `--config`
 
