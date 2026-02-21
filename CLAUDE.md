@@ -84,20 +84,20 @@ All commands default to JSON with a standard envelope:
 
 ## CLI Commands
 
-| Command | Description |
-|---------|-------------|
-| `init` | Profile setup |
-| `log <type> <value>` | Log metric entry (single or `--batch`) |
-| `show [type]` | Show metric history |
-| `trend <type>` | Trend analysis with period bucketing |
-| `trend --correlate a,b` | Pearson correlation between two metrics |
-| `goal set/status/remove` | Goal management |
-| `status` | Daily overview with streaks, pain alerts |
-| `report` | Period reports (week/month/custom range) |
-| `export` | Export to CSV/JSON |
-| `import` | Import from CSV/JSON |
-| `config show/set` | Configuration management |
-| `completions <shell>` | Shell completions (bash/zsh/fish) |
+| Command                  | Description                              |
+| ------------------------ | ---------------------------------------- |
+| `init`                   | Profile setup                            |
+| `log <type> <value>`     | Log metric entry (single or `--batch`)   |
+| `show [type]`            | Show metric history                      |
+| `trend <type>`           | Trend analysis with period bucketing     |
+| `trend --correlate a,b`  | Pearson correlation between two metrics  |
+| `goal set/status/remove` | Goal management                          |
+| `status`                 | Daily overview with streaks, pain alerts |
+| `report`                 | Period reports (week/month/custom range) |
+| `export`                 | Export to CSV/JSON                       |
+| `import`                 | Import from CSV/JSON                     |
+| `config show/set`        | Configuration management                 |
+| `completions <shell>`    | Shell completions (bash/zsh/fish)        |
 
 Global flags: `--human/-H`, `--quiet/-q`, `--date`, `--config`
 
@@ -113,6 +113,7 @@ When developing features or fixing bugs, follow **BDD (Behavior-Driven Developme
 4. **Refactor** — Clean up while keeping tests green. Do not add behavior during refactor.
 
 **Rules:**
+
 - Every new function/method must have a test
 - Bug fixes must include a regression test that reproduces the bug
 - Watch each test fail before implementing — if a test passes immediately, it tests nothing useful
@@ -120,6 +121,7 @@ When developing features or fixing bugs, follow **BDD (Behavior-Driven Developme
 - Shell scripts (`.sh`) must have test scripts (`test-*.sh`) exercising key behaviors
 
 Test organization:
+
 - **Integration tests** — `tests/` directory, exercising the full pipeline (db → core → output) with a temp database
 - **Unit tests** — `#[cfg(test)] mod tests` inside source files for pure logic
 - **Shell tests** — `test-*.sh` scripts alongside shell scripts, mocking external dependencies
@@ -144,11 +146,13 @@ Test organization:
 When the user sends PR links/lists for review, execute end-to-end review by default — don't stop at suggestions.
 
 **Three mandatory checks:**
+
 1. Does the PR actually solve the stated problem?
 2. Are the changes sound (regression risk, maintainability, test coverage)?
 3. Can it merge as-is, or must changes be made first?
 
 **Action rules:**
+
 - **Blocking issues found** — leave blocking comments on the PR (specify file, risk, conclusion). Do NOT merge.
 - **Only minor issues** — fix directly on the PR branch, add/fix tests, verify CI passes, then merge.
 - **Review conclusion must include:** per-PR disposition (merge / changes requested) with key rationale.
@@ -156,3 +160,24 @@ When the user sends PR links/lists for review, execute end-to-end review by defa
 ## Spec Reference
 
 `docs/openvital-spec.md` contains the full product specification. All Phase 1-3 features are implemented.
+
+## Session Discipline
+
+### One deliverable per session
+
+Do not pack "implement + review + fix + merge + test" into one session.
+If a task involves >3 files or >2 independent steps, enter plan mode and get confirmation before executing.
+
+### Local validation before push
+
+After modifying code, run the appropriate checks before any `git push`:
+
+- Rust: `cargo fmt --check && cargo test`
+
+The pre-push hook will block pushes that fail validation, but proactively validate anyway.
+
+### Observer Agent Rules
+
+- Only launch for complex sessions (>30 minutes estimated)
+- Must have a concrete extraction goal — no open-ended "observe and record"
+- No empty "no new activity" updates
