@@ -133,7 +133,7 @@ Test organization:
 - `FromStr` trait for enums parsed from CLI strings (Direction, Timeframe, TrendPeriod)
 - New commands: add variant to `Commands` enum in `cli.rs`, handler in `cmd/`, logic in `core/`
 - Release via [Conventional Commits](https://www.conventionalcommits.org/) → release-please automates versioning
-- **Never push directly to master** — always create a feature branch and open a PR. CI must pass before merging.
+- **Never push directly to main** — always create a feature branch and open a PR. CI must pass before merging.
 
 ## Commit Format
 

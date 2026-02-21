@@ -16,7 +16,7 @@ This document defines the project-specific configuration for integrating Jules i
 | Build tool | Cargo |
 | CI | GitHub Actions (check, fmt, clippy, test on Linux/macOS/Windows) |
 | Test framework | `#[test]` + integration tests in `tests/` |
-| Main branch | `master` |
+| Main branch | `main` |
 | Release | Conventional Commits → release-please |
 | Architecture | 4-layer: CLI → Command → Core → DB |
 | Lint | `cargo clippy -- -D warnings` (zero warnings policy) |
@@ -38,7 +38,7 @@ This document defines the project-specific configuration for integrating Jules i
 
 | Template Placeholder | OpenVital Value |
 |---------------------|-----------------|
-| `{{MAIN_BRANCH}}` | `master` |
+| `{{MAIN_BRANCH}}` | `main` |
 | `{{OWNER}}` | `64andrewwalker` |
 | `{{REPO}}` | `openvital` |
 

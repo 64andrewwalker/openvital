@@ -22,7 +22,7 @@ Integrate Jules as an always-on development agent via **four automation pipeline
 
 | # | Pipeline | Trigger | Output | Human Gate |
 |---|----------|---------|--------|------------|
-| 1 | Doc Sync | PR merged to `master` | Documentation update PR | Required |
+| 1 | Doc Sync | PR merged to `main` | Documentation update PR | Required |
 | 2 | PR Review | PR opened/updated | Review comments + approve/request changes | N/A (advisory) |
 | 3 | Issue AutoFix | Issue created (non-Jules) | Fix PR or assessment comment | Required |
 | 4 | Scheduled Tasks | Cron (daily/weekly) | PR or Issue | Required |

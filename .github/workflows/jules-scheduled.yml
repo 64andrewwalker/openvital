@@ -45,7 +45,7 @@ jobs:
           jules_create_session \
             .github/jules-prompts/bug-hunter.txt \
             "[jules-bug] Scheduled bug hunt" \
-            "master"
+            "main"
       - name: Create jules-error issue on failure
         if: failure()
         env:
@@ -78,7 +78,7 @@ jobs:
           jules_create_session \
             .github/jules-prompts/security-patrol.txt \
             "[jules-security] Scheduled security patrol" \
-            "master"
+            "main"
       - name: Create jules-error issue on failure
         if: failure()
         env:
@@ -111,7 +111,7 @@ jobs:
           jules_create_session \
             .github/jules-prompts/test-coverage.txt \
             "[jules-test] Scheduled test coverage" \
-            "master"
+            "main"
       - name: Create jules-error issue on failure
         if: failure()
         env:
@@ -144,7 +144,7 @@ jobs:
           jules_create_session \
             .github/jules-prompts/dependency-health.txt \
             "[jules-deps] Scheduled dependency health check" \
-            "master"
+            "main"
       - name: Create jules-error issue on failure
         if: failure()
         env:
@@ -177,7 +177,7 @@ jobs:
           jules_create_session \
             .github/jules-prompts/doc-consistency.txt \
             "[jules-docs] Scheduled doc consistency check" \
-            "master"
+            "main"
       - name: Create jules-error issue on failure
         if: failure()
         env:

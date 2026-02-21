@@ -3,7 +3,7 @@ name: Jules Event Pipelines
 on:
   pull_request:
     types: [opened, synchronize, closed]
-    branches: [master]
+    branches: [main]
   issues:
     types: [opened]
 
@@ -39,7 +39,7 @@ jobs:
           jules_create_session \
             .github/jules-prompts/doc-sync.txt \
             "[jules-docs] Sync docs for PR #${PR_NUMBER}" \
-            "master"
+            "main"
       - name: Create jules-error issue on failure
         if: failure()
         env:
@@ -130,7 +130,7 @@ jobs:
           jules_create_session \
             .github/jules-prompts/issue-autofix.txt \
             "Assess issue #${ISSUE_NUMBER}" \
-            "master"
+            "main"
       - name: Create jules-error issue on failure
         if: failure()
         env:
