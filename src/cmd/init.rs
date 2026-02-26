@@ -84,6 +84,8 @@ pub fn run(skip: bool, units_arg: Option<&str>) -> Result<()> {
     Ok(())
 }
 
+const MAX_RETRIES: usize = 10;
+
 fn prompt_string(label: &str) -> Result<String> {
     print!("{}: ", label);
     io::stdout().flush()?;
@@ -96,7 +98,12 @@ fn prompt_string(label: &str) -> Result<String> {
 }
 
 fn prompt_f64(label: &str) -> Result<f64> {
+    let mut attempts = 0;
     loop {
+        if attempts >= MAX_RETRIES {
+            anyhow::bail!("Maximum retry limit exceeded ({})", MAX_RETRIES);
+        }
+        attempts += 1;
         let s = prompt_string(label)?;
         match s.parse::<f64>() {
             Ok(v) => return Ok(v),
@@ -106,7 +113,12 @@ fn prompt_f64(label: &str) -> Result<f64> {
 }
 
 fn prompt_u16(label: &str) -> Result<u16> {
+    let mut attempts = 0;
     loop {
+        if attempts >= MAX_RETRIES {
+            anyhow::bail!("Maximum retry limit exceeded ({})", MAX_RETRIES);
+        }
+        attempts += 1;
         let s = prompt_string(label)?;
         match s.parse::<u16>() {
             Ok(v) => return Ok(v),
