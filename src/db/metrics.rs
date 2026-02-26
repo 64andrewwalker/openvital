@@ -73,7 +73,7 @@ impl Database {
     }
 
     pub fn query_by_type(&self, metric_type: &str, limit: Option<u32>) -> Result<Vec<Metric>> {
-        let mut stmt = self.conn.prepare(
+        let mut stmt = self.conn.prepare_cached(
             "SELECT id, timestamp, category, type, value, unit, note, tags, source
              FROM metrics WHERE type = ?1 ORDER BY timestamp DESC LIMIT ?2",
         )?;
@@ -102,7 +102,7 @@ impl Database {
 
     /// Query metrics by type, ordered ascending by timestamp (oldest first).
     pub fn query_by_type_asc(&self, metric_type: &str, limit: Option<u32>) -> Result<Vec<Metric>> {
-        let mut stmt = self.conn.prepare(
+        let mut stmt = self.conn.prepare_cached(
             "SELECT id, timestamp, category, type, value, unit, note, tags, source
              FROM metrics WHERE type = ?1 ORDER BY timestamp ASC LIMIT ?2",
         )?;
@@ -143,7 +143,7 @@ impl Database {
     }
 
     fn query_by_range_str(&self, start: &str, end: &str) -> Result<Vec<Metric>> {
-        let mut stmt = self.conn.prepare(
+        let mut stmt = self.conn.prepare_cached(
             "SELECT id, timestamp, category, type, value, unit, note, tags, source
              FROM metrics WHERE timestamp >= ?1 AND timestamp <= ?2 ORDER BY timestamp",
         )?;
@@ -182,7 +182,7 @@ impl Database {
             .unwrap_or_else(|| "9999-12-31T23:59:59".to_string());
 
         let sql = if let Some(t) = metric_type {
-            let mut stmt = self.conn.prepare(
+            let mut stmt = self.conn.prepare_cached(
                 "SELECT id, timestamp, category, type, value, unit, note, tags, source
                  FROM metrics WHERE type = ?1 AND timestamp >= ?2 AND timestamp <= ?3
                  ORDER BY timestamp ASC",
@@ -211,7 +211,7 @@ impl Database {
              ORDER BY timestamp ASC"
         };
 
-        let mut stmt = self.conn.prepare(sql)?;
+        let mut stmt = self.conn.prepare_cached(sql)?;
         let rows = stmt.query_map(params![from_str, to_str], |row| {
             Ok(MetricRow {
                 id: row.get(0)?,
@@ -237,7 +237,7 @@ impl Database {
     pub fn distinct_entry_dates(&self, from: NaiveDate, to: NaiveDate) -> Result<Vec<String>> {
         let start = format!("{}T00:00:00", from);
         let end = format!("{}T23:59:59", to);
-        let mut stmt = self.conn.prepare(
+        let mut stmt = self.conn.prepare_cached(
             "SELECT DISTINCT date(timestamp) as d FROM metrics
              WHERE timestamp >= ?1 AND timestamp <= ?2 ORDER BY d DESC",
         )?;
@@ -253,7 +253,7 @@ impl Database {
     pub fn distinct_metric_types(&self) -> Result<Vec<String>> {
         let mut stmt = self
             .conn
-            .prepare("SELECT DISTINCT type FROM metrics ORDER BY type ASC")?;
+            .prepare_cached("SELECT DISTINCT type FROM metrics ORDER BY type ASC")?;
         let rows = stmt.query_map([], |row| row.get::<_, String>(0))?;
         let mut types = Vec::new();
         for row in rows {
