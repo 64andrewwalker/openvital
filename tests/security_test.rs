@@ -113,4 +113,42 @@ mod tests {
             "Config file should be corrected to 0600 after re-save"
         );
     }
+
+    #[test]
+    fn test_existing_db_loose_permissions_are_corrected() {
+        let _lock = CONFIG_ENV_LOCK.lock().unwrap();
+        let dir = TempDir::new().unwrap();
+        let home_dir = dir.path().join(".openvital");
+        let _guard = OpenVitalHomeGuard::set(&home_dir);
+        let db_path = home_dir.join("data.db");
+
+        // Create directory
+        fs::create_dir_all(&home_dir).unwrap();
+
+        // Create DB file with loose permissions manually
+        {
+            let file = fs::File::create(&db_path).unwrap();
+            let mut perms = file.metadata().unwrap().permissions();
+            perms.set_mode(0o644);
+            fs::set_permissions(&db_path, perms).unwrap();
+        }
+
+        // Verify it is 0644
+        let mode = fs::metadata(&db_path).unwrap().permissions().mode();
+        assert_eq!(
+            mode & 0o777,
+            0o644,
+            "Setup: DB file should start with 0644 permissions"
+        );
+
+        // Open database, should correct permissions
+        Database::open(&db_path).expect("Failed to open database");
+
+        let mode = fs::metadata(&db_path).unwrap().permissions().mode();
+        assert_eq!(
+            mode & 0o777,
+            0o600,
+            "DB file should be corrected to 0600 after open"
+        );
+    }
 }

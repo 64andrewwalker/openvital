@@ -22,6 +22,19 @@ impl Database {
             }
         }
 
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            // Securely create the file if it doesn't exist, with 0600 permissions.
+            // This prevents a race condition where the file is created with default
+            // permissions (e.g. 0644) and then restricted.
+            std::fs::OpenOptions::new()
+                .write(true)
+                .create(true)
+                .mode(0o600)
+                .open(path)?;
+        }
+
         let conn = Connection::open(path)?;
 
         #[cfg(unix)]
