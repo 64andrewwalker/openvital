@@ -228,9 +228,9 @@ Manage goals.
 
 ```bash
 # Set a goal
-openvital goal set weight --below 75 --timeframe monthly
-openvital goal set cardio --above 150 --timeframe weekly
-openvital goal set water --above 2000 --timeframe daily
+openvital goal set weight 75 below monthly
+openvital goal set cardio 150 above weekly
+openvital goal set water 2000 above daily
 
 # Check goal status
 openvital goal status
@@ -720,16 +720,7 @@ so = "soreness"
 cal = "calories_in"
 st = "screen_time"
 
-[goals]
-weight = { target = 75, direction = "below", timeframe = "monthly" }
-cardio = { target = 150, direction = "above", timeframe = "weekly" }
-water = { target = 2000, direction = "above", timeframe = "daily" }
-
 [alerts]
 pain_threshold = 5
 pain_consecutive_days = 3
-
-[agent]
-default_source = "manual"
-status_include_streaks = true
 ```

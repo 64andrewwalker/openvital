@@ -304,8 +304,9 @@ fn test_goal_status_monthly_uses_latest_value() {
     )
     .unwrap();
 
-    let d1 = NaiveDate::from_ymd_opt(2026, 2, 1).unwrap();
-    let d2 = NaiveDate::from_ymd_opt(2026, 2, 10).unwrap();
+    let today = chrono::Local::now().date_naive();
+    let d1 = today - chrono::Duration::days(10);
+    let d2 = today - chrono::Duration::days(1);
     db.insert_metric(&common::make_metric("weight", 80.0, d1))
         .unwrap();
     db.insert_metric(&common::make_metric("weight", 76.0, d2))
@@ -332,7 +333,7 @@ fn test_goal_status_monthly_met() {
     )
     .unwrap();
 
-    let d = NaiveDate::from_ymd_opt(2026, 2, 15).unwrap();
+    let d = chrono::Local::now().date_naive();
     db.insert_metric(&common::make_metric("weight", 74.5, d))
         .unwrap();
 
@@ -422,7 +423,7 @@ fn test_goal_status_progress_string_below_at_target() {
     )
     .unwrap();
 
-    let d = NaiveDate::from_ymd_opt(2026, 2, 10).unwrap();
+    let d = chrono::Local::now().date_naive();
     db.insert_metric(&common::make_metric("weight", 75.0, d))
         .unwrap();
 

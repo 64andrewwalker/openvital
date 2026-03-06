@@ -24,7 +24,7 @@ Pre-commit hook runs fmt + clippy + test automatically. Setup: `git config core.
 
 ```
 src/
-├── cli.rs          # clap definitions (Cli, Commands, GoalAction, ConfigAction)
+├── cli.rs          # clap definitions (Cli, Commands, GoalAction, ConfigAction, MedAction)
 ├── main.rs         # Parse CLI → dispatch to cmd/ → handle errors
 ├── lib.rs          # Public API: re-exports core, db, models, output
 ├── cmd/            # Thin shells: open db + call core + format output
@@ -33,6 +33,7 @@ src/
 │   ├── goal.rs     # goal set/status/remove
 │   ├── init.rs     # init profile
 │   ├── log.rs      # log single + batch
+│   ├── med.rs      # med add/take/list/stop/remove/status
 │   ├── report.rs   # period reports (week/month/custom)
 │   ├── anomaly.rs  # IQR-based statistical anomaly detection
 │   ├── context.rs  # AI health briefing (metrics, trends, goals, meds, anomalies)
@@ -45,18 +46,22 @@ src/
 │   ├── export.rs   # to_csv, to_json, import_json, import_csv
 │   ├── goal.rs     # set_goal, remove_goal, goal_status
 │   ├── logging.rs  # log_metric(LogEntry), log_batch()
+│   ├── med.rs      # medication adherence and tracking
 │   ├── query.rs    # show() → ShowResult enum
 │   ├── report.rs   # generate() → ReportResult
 │   ├── status.rs   # compute(), compute_streaks(), check_consecutive_pain()
-│   └── trend.rs    # compute() → TrendResult, correlate() → CorrelationResult
+│   ├── trend.rs    # compute() → TrendResult, correlate() → CorrelationResult
+│   └── units.rs    # unit conversions
 ├── db/
 │   ├── mod.rs      # Database struct (rusqlite Connection wrapper)
 │   ├── migrate.rs  # Schema creation + indexes (metrics + goals tables)
 │   ├── metrics.rs  # insert, query_by_type/date/range/all, distinct_entry_dates
+│   ├── meds.rs     # insert/list/get/update medications
 │   └── goals.rs    # insert/list/get/remove goals
 ├── models/
 │   ├── anomaly.rs  # AnomalyResult, AnomalyEntry with detected outlier data
 │   ├── metric.rs   # Metric, Category, default_unit()
+│   ├── med.rs      # Medication, Intake, Frequency models
 │   ├── goal.rs     # Goal, Direction, Timeframe with FromStr traits
 │   └── config.rs   # Config, Profile, Units, Alerts + load/save/aliases
 └── output/
@@ -103,6 +108,7 @@ All commands default to JSON with a standard envelope:
 | `import`                 | Import from CSV/JSON                                         |
 | `anomaly [type]`         | IQR-based statistical anomaly detection                      |
 | `context`                | AI health briefing (metrics, trends, goals, meds, anomalies) |
+| `med add/take/list/stop/remove/status` | Manage medications |
 | `config show/set`        | Configuration management                                     |
 | `completions <shell>`    | Shell completions (bash/zsh/fish)                            |
 
