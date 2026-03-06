@@ -56,6 +56,9 @@ openvital goal set water --target 2000 --direction above --timeframe daily
 | `report` | Period reports (week/month/custom) |
 | `export` | Export to CSV/JSON |
 | `import` | Import from CSV/JSON |
+| `anomaly [type]` | Detect anomalous health readings |
+| `context` | AI health briefing |
+| `med add/take/list/stop/remove/status` | Manage medications |
 | `config show/set` | Configuration management |
 | `completions <shell>` | Shell completions (bash/zsh/fish) |
 
